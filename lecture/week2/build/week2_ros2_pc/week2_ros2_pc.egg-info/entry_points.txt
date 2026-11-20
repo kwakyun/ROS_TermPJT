@@ -1,4 +1,0 @@
-[console_scripts]
-hello_listener = week2_ros2_pc.hello_listener:main
-hello_talker = week2_ros2_pc.hello_talker:main
-
