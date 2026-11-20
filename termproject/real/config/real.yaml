@@ -1,0 +1,33 @@
+# 실물 실행 설정 (PC에서 cube_detector.py, policy_runner.py 가 읽음)
+ros:
+  domain_id_note: "export ROS_DOMAIN_ID=<조 번호> 를 PC·Jetson 모두에서 같게"
+  image_topic: /top_cam              # 7주차 top_camera_publisher (Jetson)
+  joint_state_topic: /real/joint_states   # 9주차 arm_io (Jetson)
+  joint_target_topic: /joint_targets
+  torque_service: /robot/set_torque
+  cube_topic: /cube_obs              # cube_detector → policy_runner [x, y, yaw, valid, stamp]
+  debug_image_topic: /cube_debug
+
+detector:
+  homography: real/config/homography.yaml
+  # 배정 색에 맞게 tune_hsv.py 로 찾은 값으로 바꾼다. (아래는 초록 큐브 예시)
+  hsv_ranges:
+    - {low: [40, 80, 60], high: [85, 255, 255]}
+  # 빨강 예시: - {low: [0, 120, 70], high: [8, 255, 255]}
+  #            - {low: [170, 120, 70], high: [180, 255, 255]}
+  min_area_px: 60
+  max_area_px: 3000
+  roi_px: null                       # [x0, y0, x1, y1] 작업판 영역만 보고 싶을 때
+  cube_top_height_m: 0.025           # 시차 보정에 쓰는 '보이는 면' 높이
+  smoothing_alpha: 0.6               # 지수 평활 (1이면 평활 없음)
+  max_jump_m: 0.03                   # 한 프레임에 이보다 크게 튀면 무시(오검출)
+
+runner:
+  run: A_sym_s7                      # runs/<run>/policy_best.zip 과 run_config.yaml 사용
+  which: best
+  rate_hz: 20.0                      # 시뮬레이션 제어 주기와 반드시 같게
+  cube_timeout_s: 0.25               # 이보다 오래된 검출은 '검출 실패'로 처리
+  joint_timeout_s: 0.3               # 관절 상태가 끊기면 정지
+  max_target_jump_rad: 0.35          # 측정값 대비 한 번에 보낼 수 있는 최대 차이(안전)
+  time_limit_s: 30.0
+  log_dir: logs/real

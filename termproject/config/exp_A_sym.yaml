@@ -1,0 +1,7 @@
+# 비교 A — 개선 방법: (sin 4θ, cos 4θ) + 잡기/놓기 정렬 오차(±45°로 접음) 관측 + 정렬 보상, DR 없음
+observation:
+  variant: sym
+reward:
+  variant: sym
+randomization:
+  enabled: false

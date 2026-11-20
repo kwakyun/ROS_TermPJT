@@ -1,0 +1,8 @@
+# 비교 B — 개선 방법: A 개선안 + Domain Randomization (마찰·질량·서보 강성·속도, 관측 편향·잡음·지연·검출 실패·가림)
+# 기본 방법은 exp_A_sym.yaml 로 학습한 정책을 그대로 사용한다.
+observation:
+  variant: sym
+reward:
+  variant: sym
+randomization:
+  enabled: true

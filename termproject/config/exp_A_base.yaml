@@ -1,0 +1,7 @@
+# 비교 A — 기본 방법: 큐브 yaw를 (sin θ, cos θ)로 입력, 정렬 보상 없음, DR 없음
+observation:
+  variant: base
+reward:
+  variant: base
+randomization:
+  enabled: false
