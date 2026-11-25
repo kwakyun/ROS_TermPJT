@@ -1,0 +1,163 @@
+task:
+  surface_z_m: -0.0048495945
+  cube_half_size_m: 0.0125
+  spawn:
+    x:
+    - 0.27
+    - 0.33
+    y:
+    - -0.06
+    - 0.06
+    yaw:
+    - -3.14159265
+    - 3.14159265
+  goal:
+    center_xy:
+    - 0.39
+    - 0.0
+    half_size_m: 0.025
+  time_limit_s: 30.0
+  hold_time_s: 2.0
+  lift_clearance_m: 0.002
+  workspace_cube_xy:
+    x:
+    - 0.14
+    - 0.46
+    y:
+    - -0.16
+    - 0.16
+robot:
+  ready_tcp_xyz:
+  - 0.24
+  - 0.0
+  - 0.085
+  ready_wrist_roll_rad: 0.0
+  gripper_open_rad: 0.55
+  gripper_closed_rad: -0.1
+  grasp_detect_rad: 0.0
+  max_joint_vel_rad_s:
+  - 0.35
+  - 0.35
+  - 0.35
+  - 0.45
+  - 0.55
+  - 0.6
+sim:
+  noslip_iterations: 5
+  cube_solref:
+  - 0.005
+  - 1.0
+  gripper_forcerange_nm: 1.0
+control:
+  frame_skip: 25
+  action_scale:
+  - 0.008
+  - 0.008
+  - 0.006
+  - 0.15
+  tcp_low:
+  - 0.16
+  - -0.14
+  - 0.004
+  tcp_high:
+  - 0.44
+  - 0.14
+  - 0.12
+  ik_iterations: 40
+  ik_damping: 0.02
+  ik_orientation_weight: 0.015
+  max_accepted_ik_error_m: 0.012
+observation:
+  variant: sym
+  occlusion_radius_m: 0.0
+reward:
+  variant: sym
+  reach_scale: 0.25
+  grasp: 0.35
+  lift: 0.5
+  carry: 0.8
+  place: 1.0
+  release: 1.3
+  hold: 0.5
+  align_weight: 0.1
+  push_penalty_per_m: 20.0
+  action_cost: 0.005
+  success_bonus: 50.0
+  failure_penalty: 10.0
+randomization:
+  enabled: false
+  cube_friction_scale:
+  - 0.7
+  - 1.3
+  cube_mass_scale:
+  - 0.8
+  - 1.2
+  actuator_kp_scale:
+  - 0.8
+  - 1.2
+  joint_vel_scale:
+  - 0.85
+  - 1.15
+  obs_pos_bias_m: 0.003
+  obs_pos_noise_m: 0.002
+  obs_yaw_bias_rad: 0.05
+  obs_yaw_noise_rad: 0.03
+  obs_delay_steps:
+  - 0
+  - 2
+  obs_dropout_prob: 0.05
+  occlusion_radius_m: 0.02
+curriculum:
+  enabled: true
+  start_scale: 0.3
+  full_at_fraction: 0.5
+training:
+  algorithm: sac
+  total_timesteps: 1500000
+  n_envs: 4
+  seed: 7
+  device: cpu
+  learning_rate: 0.0003
+  buffer_size: 1000000
+  learning_starts: 10000
+  batch_size: 512
+  gamma: 0.98
+  tau: 0.005
+  ent_coef: auto
+  train_freq: 1
+  gradient_steps: 1
+  net_arch:
+  - 256
+  - 256
+  - 256
+  ppo:
+    n_steps: 2048
+    batch_size: 512
+    n_epochs: 10
+    gae_lambda: 0.95
+    clip_range: 0.2
+    ent_coef: 0.0
+  eval_every_steps: 50000
+  eval_episodes: 30
+  checkpoint_every_steps: 100000
+evaluation:
+  official_seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  extra_seed_start: 1000
+  extra_episodes: 100
+  yaw_bins: 8
+_effective:
+  steps: 1500000
+  seed: 7
+  n_envs: 8
+  exp:
+  - config/exp_A_sym.yaml

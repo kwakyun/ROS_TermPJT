@@ -90,7 +90,10 @@ def main() -> None:
     fig, ax = plt.subplots(figsize=(5, 4))
     data = [[float(r["final_margin_mm"]) for g in groups[lb] for r in g["rows"] if r["success"] == "True"]
             for lb in labels]
-    ax.boxplot([d if d else [np.nan] for d in data], labels=labels)
+    try:
+        ax.boxplot([d if d else [np.nan] for d in data], tick_labels=labels)
+    except TypeError:
+        ax.boxplot([d if d else [np.nan] for d in data], labels=labels)
     ax.axhline(0, color="k", lw=0.8)
     ax.set_ylabel("min corner margin to goal edge [mm]")
     ax.set_title("Placement margin (successful trials)")
