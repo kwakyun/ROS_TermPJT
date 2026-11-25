@@ -49,6 +49,64 @@ def quick_eval(model, cfg: dict, episodes: int, seed: int) -> dict:
     return {"success_rate": succ / episodes, "mean_max_stage": float(np.mean(stages))}
 
 
+def seed_replay_buffer_with_demos(
+    model, cfg: dict, n_episodes: int, n_envs: int, seed_start: int = 20000
+) -> tuple[int, int]:
+    """스크립트 성공 시연으로 SAC 리플레이 버퍼를 사전 초기화한다(시드 20000+ 사용)."""
+    from tools.scripted_check import scripted_action
+
+    env = PickPlaceEnv(config=cfg)
+    env.set_curriculum(1.0)
+    transitions: list[tuple[np.ndarray, np.ndarray, np.ndarray, float, float]] = []
+    ok_eps = 0
+    last_s = seed_start
+    max_attempts = max(n_episodes * 5, 100)
+    for s in range(seed_start, seed_start + max_attempts):
+        last_s = s
+        obs, _ = env.reset(seed=s)
+        phase = {"name": "above", "t": 0}
+        ep: list[tuple[np.ndarray, np.ndarray, np.ndarray, float, float]] = []
+        done = False
+        info: dict = {}
+        while not done:
+            act = scripted_action(env, phase).astype(np.float32)
+            next_obs, rew, term, trunc, info = env.step(act)
+            done = bool(term or trunc)
+            ep.append((
+                obs.astype(np.float32),
+                next_obs.astype(np.float32),
+                act,
+                float(rew),
+                float(done),
+            ))
+            obs = next_obs
+        if info.get("is_success"):
+            transitions.extend(ep)
+            ok_eps += 1
+            if ok_eps >= n_episodes:
+                break
+    env.close()
+
+    n_batches = len(transitions) // n_envs
+    infos = [{} for _ in range(n_envs)]
+    for b in range(n_batches):
+        chunk = transitions[b * n_envs:(b + 1) * n_envs]
+        obs_b = np.stack([t[0] for t in chunk], axis=0)
+        next_obs_b = np.stack([t[1] for t in chunk], axis=0)
+        act_b = np.stack([t[2] for t in chunk], axis=0)
+        rew_b = np.array([t[3] for t in chunk], dtype=np.float32)
+        done_b = np.array([t[4] for t in chunk], dtype=np.float32)
+        model.replay_buffer.add(obs_b, next_obs_b, act_b, rew_b, done_b, infos)
+
+    n_seeded = n_batches * n_envs
+    print(
+        f"[demo] seeded {n_seeded} transitions from {ok_eps}/{n_episodes} successful episodes "
+        f"(seeds {seed_start}..{last_s})",
+        flush=True,
+    )
+    return n_seeded, ok_eps
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--exp", nargs="*", default=[], help="덮어쓸 실험 설정 yaml (순서대로)")
@@ -56,6 +114,7 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--n-envs", type=int, default=None)
+    ap.add_argument("--demo-episodes", type=int, default=None, help="SAC 리플레이 버퍼 초기화용 스크립트 성공 시연 수")
     ap.add_argument("--resume", default=None, help="이어 학습할 policy zip")
     args = ap.parse_args()
 
@@ -69,6 +128,7 @@ def main() -> None:
     steps = int(args.steps or tr["total_timesteps"])
     seed = int(args.seed if args.seed is not None else tr["seed"])
     n_envs = int(args.n_envs or tr["n_envs"])
+    demo_episodes = int(args.demo_episodes if args.demo_episodes is not None else tr.get("demo_episodes", 0))
     torch.set_num_threads(1)
 
     run_dir = ROOT / "runs" / args.run
@@ -76,7 +136,7 @@ def main() -> None:
         raise FileExistsError(f"{run_dir} 가 이미 있습니다. --run 이름을 바꾸세요.")
     (run_dir / "monitor").mkdir(parents=True, exist_ok=True)
     (run_dir / "checkpoints").mkdir(exist_ok=True)
-    cfg["_effective"] = {"steps": steps, "seed": seed, "n_envs": n_envs, "exp": args.exp}
+    cfg["_effective"] = {"steps": steps, "seed": seed, "n_envs": n_envs, "demo_episodes": demo_episodes, "exp": args.exp}
     (run_dir / "run_config.yaml").write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False),
                                               encoding="utf-8")
 
@@ -94,6 +154,8 @@ def main() -> None:
                     tau=tr["tau"], ent_coef=tr["ent_coef"], train_freq=tr["train_freq"],
                     gradient_steps=tr["gradient_steps"], policy_kwargs=policy_kwargs, seed=seed,
                     device=tr["device"], tensorboard_log=str(run_dir / "tensorboard"), verbose=1)
+        if demo_episodes > 0:
+            seed_replay_buffer_with_demos(model, cfg, demo_episodes, n_envs)
     elif algo == "ppo":
         p = tr["ppo"]
         model = PPO("MlpPolicy", venv, learning_rate=tr["learning_rate"], n_steps=p["n_steps"],
@@ -112,7 +174,7 @@ def main() -> None:
         def __init__(self) -> None:
             super().__init__()
             self.next_eval = int(tr["eval_every_steps"])
-            self.best = -1.0
+            self.best_score = (-1.0, -1.0)
             self.t0 = time.time()
             self.hist = run_dir / "eval_history.csv"
             with self.hist.open("w", newline="") as f:
@@ -123,6 +185,9 @@ def main() -> None:
                 return 1.0
             frac = self.num_timesteps / max(1, steps * cur["full_at_fraction"])
             return float(min(1.0, cur["start_scale"] + (1 - cur["start_scale"]) * frac))
+
+        def _on_training_start(self) -> None:
+            self.training_env.env_method("set_curriculum", self._scale())
 
         def _on_step(self) -> bool:
             if self.n_calls % 1000 == 0:
@@ -135,8 +200,9 @@ def main() -> None:
                                             r["mean_max_stage"], round(time.time() - self.t0)])
                 print(f"[eval] t={self.num_timesteps} curriculum={self._scale():.2f} "
                       f"success={r['success_rate']:.2f} stage={r['mean_max_stage']:.2f}", flush=True)
-                if r["success_rate"] > self.best:
-                    self.best = r["success_rate"]
+                score = (float(r["success_rate"]), float(r["mean_max_stage"]))
+                if score > self.best_score:
+                    self.best_score = score
                     self.model.save(str(run_dir / "policy_best"))
             return True
 

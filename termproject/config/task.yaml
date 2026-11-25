@@ -52,14 +52,14 @@ observation:
 reward:
   variant: base                     # base | sym   (sym 이면 잡기·놓기 정렬 항 사용)
   reach_scale: 0.25
-  grasp: 0.35
-  lift: 0.50
-  carry: 0.80
-  place: 1.00
-  release: 1.30
-  hold: 0.50
+  grasp: 0.80
+  lift: 1.20
+  carry: 1.60
+  place: 2.00
+  release: 2.50
+  hold: 1.00
   align_weight: 0.10                # sym 전용
-  push_penalty_per_m: 20.0          # 잡지 않은 큐브가 밀린 거리 [m] 당 감점
+  push_penalty_per_m: 5.0           # 잡지 않은 큐브가 밀린 거리 [m] 당 감점
   action_cost: 0.005
   success_bonus: 50.0
   failure_penalty: 10.0
@@ -80,8 +80,8 @@ randomization:                      # 비교 B (Domain Randomization). enabled=f
 
 curriculum:                         # 기본·개선 모두 같은 커리큘럼 사용 (비교 공정성)
   enabled: true
-  start_scale: 0.3                  # 시작 범위·yaw 범위를 30%에서
-  full_at_fraction: 0.5             # 전체 학습의 50% 시점에 100%
+  start_scale: 0.1                  # 시작 범위·yaw 범위를 10%에서
+  full_at_fraction: 0.6             # 전체 학습의 60% 시점에 100%
 
 training:
   algorithm: sac                    # sac | ppo
@@ -92,12 +92,13 @@ training:
   learning_rate: 0.0003
   buffer_size: 1000000
   learning_starts: 10000
+  demo_episodes: 30
   batch_size: 512
   gamma: 0.98
   tau: 0.005
   ent_coef: auto
   train_freq: 1
-  gradient_steps: 1
+  gradient_steps: 2
   net_arch: [256, 256, 256]
   ppo:                              # algorithm: ppo 일 때 사용
     n_steps: 2048

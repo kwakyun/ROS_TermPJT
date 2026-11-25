@@ -1,0 +1,167 @@
+{
+  "policy": "/home/rhkrdbswlr/termproject/runs/A_sym_v2/policy_best.zip",
+  "tag": "nominal",
+  "official": {
+    "episodes": 10,
+    "successes": 0,
+    "success_rate": 0.0,
+    "end_reasons": {
+      "grasp_fail": 9,
+      "timeout_not_released": 1
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 2,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 0,
+        "success_rate": null
+      },
+      {
+        "bin": "[0,45)",
+        "n": 2,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[45,90)",
+        "n": 0,
+        "success_rate": null
+      },
+      {
+        "bin": "[90,135)",
+        "n": 3,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[135,180)",
+        "n": 1,
+        "success_rate": 0.0
+      }
+    ],
+    "success_margin_mm_mean": null,
+    "success_margin_mm_min": null,
+    "success_time_s_mean": null
+  },
+  "extra": {
+    "episodes": 100,
+    "successes": 0,
+    "success_rate": 0.0,
+    "end_reasons": {
+      "grasp_fail": 99,
+      "dropped": 1
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 10,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 17,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 12,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 13,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[0,45)",
+        "n": 11,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[45,90)",
+        "n": 11,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[90,135)",
+        "n": 11,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[135,180)",
+        "n": 15,
+        "success_rate": 0.0
+      }
+    ],
+    "success_margin_mm_mean": null,
+    "success_margin_mm_min": null,
+    "success_time_s_mean": null
+  },
+  "all": {
+    "episodes": 110,
+    "successes": 0,
+    "success_rate": 0.0,
+    "end_reasons": {
+      "grasp_fail": 108,
+      "timeout_not_released": 1,
+      "dropped": 1
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 11,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 18,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 14,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 13,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[0,45)",
+        "n": 13,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[45,90)",
+        "n": 11,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[90,135)",
+        "n": 14,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[135,180)",
+        "n": 16,
+        "success_rate": 0.0
+      }
+    ],
+    "success_margin_mm_mean": null,
+    "success_margin_mm_min": null,
+    "success_time_s_mean": null
+  }
+}

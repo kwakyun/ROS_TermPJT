@@ -1,0 +1,8 @@
+{
+  "run": "A_sym_s7",
+  "algorithm": "sac",
+  "steps": 1500000,
+  "train_seconds": 14124.5,
+  "n_envs": 8,
+  "seed": 7
+}

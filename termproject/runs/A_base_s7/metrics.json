@@ -1,0 +1,8 @@
+{
+  "run": "A_base_s7",
+  "algorithm": "sac",
+  "steps": 1500000,
+  "train_seconds": 14292.6,
+  "n_envs": 8,
+  "seed": 7
+}

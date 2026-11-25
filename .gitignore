@@ -1,0 +1,27 @@
+# Virtual environments
+.venv/
+termproject/.venv/
+venv/
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+
+# Large training logs and intermediate checkpoints
+termproject/logs_*.txt
+termproject/runs/*/checkpoints/
+termproject/runs/*/tensorboard/
+termproject/runs/*/monitor/
+termproject/runs/smoke/
+termproject/runs/smoke_v2/
+termproject/runs/latest_run.txt
+
+# Temp & swap
+*.swp
+/tmp/
