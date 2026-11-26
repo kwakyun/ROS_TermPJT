@@ -13,7 +13,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Large training logs and intermediate checkpoints
+# Large training logs, checkpoints, and rendered videos
 termproject/logs_*.txt
 termproject/runs/*/checkpoints/
 termproject/runs/*/tensorboard/
@@ -21,6 +21,7 @@ termproject/runs/*/monitor/
 termproject/runs/smoke/
 termproject/runs/smoke_v2/
 termproject/runs/latest_run.txt
+termproject/videos/*.mp4
 
 # Temp & swap
 *.swp

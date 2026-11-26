@@ -29,6 +29,9 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
         "carry": (cfg["carry"] * (0.6 + 0.4 * (1.0 - np.tanh(10.0 * d_goal_xy)))
                   if s["lifted"] else 0.0),
         "place": cfg["place"] if (s["grasped"] and s["on_floor"] and s["inside_goal"]) else 0.0,
+        "place_near": (cfg["carry"] * (0.6 + 0.4 * (1.0 - np.tanh(10.0 * d_goal_xy)))
+                       if (s["grasped"] and s["on_floor"] and s["ever_lifted"] and not s["inside_goal"])
+                       else 0.0),
         "opening": (cfg["place"] + (cfg["release"] - cfg["place"]) * s.get("gripper_open_frac", 0.0)
                     if (s["ever_lifted"] and s["on_floor"] and s["inside_goal"]
                         and not s.get("grip_closed_cmd", True))

@@ -15,11 +15,12 @@ import numpy as np
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
-from stable_baselines3 import SAC
+from gymnasium import spaces
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.type_aliases import ReplayBufferSamples
-from stable_baselines3.common.utils import polyak_update
+from stable_baselines3.common.utils import explained_variance, polyak_update
 from stable_baselines3.sac.policies import ContinuousCritic, SACPolicy
 
 
@@ -209,3 +210,132 @@ class StableSAC(SAC):
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
+
+
+class AnchoredPPO(PPO):
+    """PPO with BC anchor loss, dampened negative advantages, and bounded action std."""
+
+    adv_neg_scale: float = 0.25
+    bc_anchor_start: float = 0.50
+    bc_anchor_end: float = 0.10
+    min_std: float = 0.03
+    max_std: float = 0.10
+    demo_obs_norm: Optional[th.Tensor] = None
+    demo_actions: Optional[th.Tensor] = None
+
+    def set_bc_anchor(
+        self,
+        obs_norm: th.Tensor,
+        actions: th.Tensor,
+        coef_start: float = 0.50,
+        coef_end: float = 0.10,
+    ) -> None:
+        self.demo_obs_norm = obs_norm.detach().to(self.device)
+        self.demo_actions = actions.detach().to(self.device)
+        self.bc_anchor_start = float(coef_start)
+        self.bc_anchor_end = float(coef_end)
+
+    def train(self) -> None:
+        self.policy.set_training_mode(True)
+        self._update_learning_rate(self.policy.optimizer)
+        clip_range = self.clip_range(self._current_progress_remaining)  # type: ignore[operator]
+        if self.clip_range_vf is not None:
+            clip_range_vf = self.clip_range_vf(self._current_progress_remaining)  # type: ignore[operator]
+
+        entropy_losses = []
+        pg_losses, value_losses, bc_losses = [], [], []
+        clip_fractions = []
+        bc_coef = self.bc_anchor_end + (self.bc_anchor_start - self.bc_anchor_end) * float(
+            self._current_progress_remaining
+        )
+        actor_trainable = any(p.requires_grad for p in self.policy.action_net.parameters())
+
+        continue_training = True
+        for epoch in range(self.n_epochs):
+            approx_kl_divs = []
+            for rollout_data in self.rollout_buffer.get(self.batch_size):
+                actions = rollout_data.actions
+                if isinstance(self.action_space, spaces.Discrete):
+                    actions = rollout_data.actions.long().flatten()
+
+                values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
+                values = values.flatten()
+                advantages = rollout_data.advantages
+                if self.normalize_advantage and len(advantages) > 1:
+                    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+                if self.adv_neg_scale < 1.0:
+                    advantages = th.where(advantages > 0, advantages, self.adv_neg_scale * advantages)
+
+                ratio = th.exp(log_prob - rollout_data.old_log_prob)
+                policy_loss_1 = advantages * ratio
+                policy_loss_2 = advantages * th.clamp(ratio, 1 - clip_range, 1 + clip_range)
+                policy_loss = -th.min(policy_loss_1, policy_loss_2).mean()
+
+                pg_losses.append(policy_loss.item())
+                clip_fraction = th.mean((th.abs(ratio - 1) > clip_range).float()).item()
+                clip_fractions.append(clip_fraction)
+
+                if self.clip_range_vf is None:
+                    values_pred = values
+                else:
+                    values_pred = rollout_data.old_values + th.clamp(
+                        values - rollout_data.old_values, -clip_range_vf, clip_range_vf
+                    )
+                value_loss = F.mse_loss(rollout_data.returns, values_pred)
+                value_losses.append(value_loss.item())
+
+                if entropy is None:
+                    entropy_loss = -th.mean(-log_prob)
+                else:
+                    entropy_loss = -th.mean(entropy)
+                entropy_losses.append(entropy_loss.item())
+
+                loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+                if actor_trainable and self.demo_obs_norm is not None and self.demo_actions is not None and bc_coef > 0.0:
+                    d_idx = th.randint(0, len(self.demo_obs_norm), (self.batch_size,), device=self.device)
+                    pred_demo = self.policy.get_distribution(self.demo_obs_norm[d_idx]).mode()
+                    bc_loss = F.mse_loss(pred_demo, self.demo_actions[d_idx])
+                    bc_losses.append(bc_loss.item())
+                    loss = loss + bc_coef * bc_loss
+
+                with th.no_grad():
+                    log_ratio = log_prob - rollout_data.old_log_prob
+                    approx_kl_div = th.mean((th.exp(log_ratio) - 1) - log_ratio).cpu().numpy()
+                    approx_kl_divs.append(approx_kl_div)
+
+                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
+                    continue_training = False
+                    if self.verbose >= 1:
+                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
+                    break
+
+                self.policy.optimizer.zero_grad()
+                loss.backward()
+                th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+                if hasattr(self.policy, "log_std"):
+                    with th.no_grad():
+                        self.policy.log_std.data.clamp_(math.log(self.min_std), math.log(self.max_std))
+
+            self._n_updates += 1
+            if not continue_training:
+                break
+
+        explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
+
+        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
+        self.logger.record("train/policy_gradient_loss", np.mean(pg_losses))
+        self.logger.record("train/value_loss", np.mean(value_losses))
+        self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
+        self.logger.record("train/clip_fraction", np.mean(clip_fractions))
+        self.logger.record("train/loss", loss.item())
+        self.logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/bc_anchor_coef", bc_coef)
+        if bc_losses:
+            self.logger.record("train/bc_anchor_loss", np.mean(bc_losses))
+        if hasattr(self.policy, "log_std"):
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/clip_range", clip_range)
+        if self.clip_range_vf is not None:
+            self.logger.record("train/clip_range_vf", clip_range_vf)

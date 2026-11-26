@@ -1,0 +1,8 @@
+{
+  "run": "B_dr_v4",
+  "algorithm": "ppo",
+  "steps": 245760,
+  "train_seconds": 1046.8,
+  "n_envs": 8,
+  "seed": 7
+}

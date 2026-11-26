@@ -51,18 +51,18 @@ observation:
 
 reward:
   variant: base                     # base | sym   (sym 이면 잡기·놓기 정렬 항 사용)
-  reach_scale: 0.25
-  grasp: 0.60
-  lift: 1.00
-  carry: 1.40
-  place: 1.80
-  release: 2.20
-  hold: 0.80
-  align_weight: 0.10                # sym 전용
-  push_penalty_per_m: 5.0           # 잡지 않은 큐브가 밀린 거리 [m] 당 감점
-  closed_far_penalty: 0.05          # 원거리에서 미리 닫힘 상태 유지 감점
-  action_cost: 0.005
-  success_bonus: 20.0
+  reach_scale: 0.02
+  grasp: 0.04
+  lift: 0.06
+  carry: 0.08
+  place: 0.10
+  release: 0.14
+  hold: 0.06
+  align_weight: 0.01                # sym 전용
+  push_penalty_per_m: 1.0           # 잡지 않은 큐브가 밀린 거리 [m] 당 감점
+  closed_far_penalty: 0.01          # 원거리에서 미리 닫힘 상태 유지 감점
+  action_cost: 0.001
+  success_bonus: 100.0
   failure_penalty: 10.0
 
 randomization:                      # 비교 B (Domain Randomization). enabled=false 면 공칭 환경
@@ -80,25 +80,32 @@ randomization:                      # 비교 B (Domain Randomization). enabled=f
   occlusion_radius_m: 0.02
 
 curriculum:                         # 기본·개선 모두 같은 커리큘럼 사용 (비교 공정성)
-  enabled: true
+  enabled: false                    # BC 워밍업은 전체 100% 범위에서 학습하므로 비활성화
   start_scale: 0.1                  # 시작 범위·yaw 범위를 10%에서
   full_at_fraction: 0.5             # 전체 학습의 50% 시점에 100%
 
 training:
-  algorithm: sac                    # sac | ppo
-  total_timesteps: 600000
-  n_envs: 4
+  algorithm: ppo                    # sac | ppo
+  total_timesteps: 240000
+  n_envs: 8
   seed: 7
   device: cpu
   torch_threads: 2
-  learning_rate: 0.0003
+  learning_rate: 0.000015
   buffer_size: 1000000
   learning_starts: 10000
-  demo_episodes: 40
+  demo_episodes: 80
   demo_ratio: 0.25
   demo_anneal_fraction: 0.7
+  bc_epochs: 120
+  bc_lr: 0.003
+  bc_init_log_std: -2.6
+  dagger_rounds: 0
+  dagger_episodes: 30
+  dagger_epochs: 60
+  vf_warmup_iters: 2
   batch_size: 256
-  gamma: 0.98
+  gamma: 0.995
   tau: 0.005
   ent_coef: auto_0.1
   min_ent_coef: 0.005
@@ -108,13 +115,21 @@ training:
   gradient_steps: 2
   net_arch: [256, 256]
   ppo:                              # algorithm: ppo 일 때 사용
-    n_steps: 2048
-    batch_size: 512
-    n_epochs: 10
+    n_steps: 1024
+    batch_size: 256
+    n_epochs: 4
     gae_lambda: 0.95
-    clip_range: 0.2
+    clip_range: 0.15
+    target_kl: 0.015
     ent_coef: 0.0
-  eval_every_steps: 50000
+    vf_coef: 0.5
+    max_grad_norm: 0.5
+    adv_neg_scale: 0.25
+    bc_anchor_start: 0.50
+    bc_anchor_end: 0.10
+    min_std: 0.03
+    max_std: 0.10
+  eval_every_steps: 40000
   eval_episodes: 30
   checkpoint_every_steps: 100000
 
