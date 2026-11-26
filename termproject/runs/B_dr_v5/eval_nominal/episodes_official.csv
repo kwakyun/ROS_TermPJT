@@ -1,0 +1,11 @@
+seed,start_x,start_y,start_yaw_deg,success,end_reason,max_stage,drops,sim_time_s,final_margin_mm,final_yaw_deg,events
+0,0.30261749948792543,0.05220869085453218,113.70727935382206,False,dropped,3,2,30.0,-54.48,173.14442189968952,3.2:grasped;3.55:lifted;4.95:dropped;4.95:approach;5.75:grasped;6.2:lifted;7.1:placed;8.55:lifted;9.15:dropped;9.15:approach
+1,0.30297562126038363,-0.05669290641083179,91.26471901864525,True,success,5,0,7.55,1.86,88.3311218780113,2.4:grasped;2.85:lifted;3.35:placed;3.9:lifted;4.9:placed;5.6:released;7.55:success
+2,0.2864981620743623,0.018891961785071104,22.41563857534047,True,success,5,0,9.4,6.66,0.4751534374570888,2.55:grasped;3.0:lifted;5.1:placed;6.05:lifted;6.6:placed;7.45:released;9.4:success
+3,0.3140746290845529,-0.04635935760943159,-39.15785137681729,True,success,5,0,7.5,4.98,-85.85942478344059,3.0:grasped;3.45:lifted;3.85:placed;4.1:lifted;4.8:placed;5.55:released;7.5:success
+4,0.32229811645125944,0.005272968091619784,144.79742853230064,False,dropped,2,1,30.0,-124.6,-70.67398368622246,12.7:grasped;13.2:lifted;13.5:dropped;13.5:approach;16.35:grasped;16.4:approach;18.75:grasped;18.85:approach
+5,0.2729254626436301,0.059901133807808565,54.852880108997034,False,outside_goal,4,0,30.0,-70.27,13.269656279441529,2.65:grasped;3.05:lifted;4.9:placed;6.6:released
+6,0.3107950596698414,-0.04524331501353719,-161.37747630144028,True,success,5,0,7.95,4.11,-179.22668709977725,3.3:grasped;3.7:lifted;5.15:placed;6.0:released;7.95:success
+7,0.31782416572512284,-0.003847805658753506,-70.90832626402255,False,dropped,2,1,30.0,-79.09,-87.28859894887462,3.3:grasped;4.6:lifted;5.1:dropped;5.1:approach
+8,0.2764172157883665,-0.0025241455004739663,-93.11322766311702,True,success,5,0,8.5,9.35,-91.82891160228097,2.0:grasped;2.2:lifted;4.4:placed;5.45:lifted;5.8:placed;6.55:released;8.5:success
+9,0.27159526406805584,-0.007530239984458953,-5.420042281982998,False,outside_goal,4,0,30.0,-129.56,-58.969337505037274,1.85:grasped;2.25:lifted;2.85:placed;3.15:lifted;3.75:placed;4.0:lifted;4.75:placed;4.95:lifted;5.5:placed;5.85:lifted;7.1:placed;7.3:lifted;7.7:placed;23.7:lifted;24.05:placed;24.35:lifted;24.6:placed;25.0:lifted;25.2:placed;25.65:lifted;25.8:placed;26.25:lifted;26.3:placed;28.95:released

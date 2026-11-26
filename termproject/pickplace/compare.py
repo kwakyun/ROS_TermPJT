@@ -116,15 +116,19 @@ def main() -> None:
     fig.savefig(out / "learning_curve.png", dpi=150)
 
     # 5) 표
-    lines = ["| 방법 | 학습 run | 공식 10회 | 추가 무작위 | 성공 여유 평균/최소 [mm] | 평균 성공 시간 [s] | 종료 원인 |",
-             "|---|---|---|---|---|---|---|"]
+    lines = ["| 방법 | 학습 run | 공식 10회 | 추가 무작위 | 한 번에 성공 (전체) | 성공 여유 평균/최소 [mm] | 평균 성공 시간 [s] | 종료 원인 |",
+             "|---|---|---|---|---|---|---|---|"]
     for lb in labels:
         for g in groups[lb]:
             s = g["summary"]
             o, e, a = s["official"], s["extra"], s["all"]
             fmt = lambda v: "-" if v is None else f"{v:.1f}"  # noqa: E731
+            oneshot = a.get("oneshot_success_rate")
+            if oneshot is None and g["rows"]:
+                oneshot = float(np.mean([r["success"] == "True" and int(r["drops"]) == 0 for r in g["rows"]]))
             lines.append(f"| {lb} | {g['run']} | {o['successes']}/{o['episodes']} | "
                          f"{(e['success_rate'] * 100 if e else float('nan')):.1f}% | "
+                         f"{(oneshot * 100 if oneshot is not None else float('nan')):.1f}% | "
                          f"{fmt(a['success_margin_mm_mean'])} / {fmt(a['success_margin_mm_min'])} | "
                          f"{fmt(a['success_time_s_mean'])} | {a['end_reasons']} |")
     (out / "table.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

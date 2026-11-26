@@ -26,7 +26,7 @@ robot:
   ready_wrist_roll_rad: 0.0
   gripper_open_rad: 0.55            # 열림 목표: 손가락 간격 약 50 mm (25 mm 큐브 + 여유)
   gripper_closed_rad: -0.10         # 닫힘 목표 (큐브를 누르도록 큐브 폭보다 좁게)
-  grasp_detect_rad: 0.00            # 닫힘 명령인데 이 각도보다 덜 닫혔으면 "무언가 잡음" (빈 닫힘은 약 -0.1)
+  grasp_detect_rad: -0.05           # 빈 닫힘(-0.10)과 잡은 큐브(-0.02~0.14) 사이
   # 실물 joints.yaml max_vel_rad_s 와 같은 값을 써야 sim·real 속도가 맞는다
   max_joint_vel_rad_s: [0.35, 0.35, 0.35, 0.45, 0.55, 0.60]
 
@@ -64,6 +64,7 @@ reward:
   action_cost: 0.001
   success_bonus: 100.0
   failure_penalty: 10.0
+  drop_penalty: 5.0                 # 운반 중 낙하 1회당 감점 (Phase 2 Ablation 결과 81.8% vs 74.5%로 채택)
 
 randomization:                      # 비교 B (Domain Randomization). enabled=false 면 공칭 환경
   enabled: false
@@ -86,7 +87,7 @@ curriculum:                         # 기본·개선 모두 같은 커리큘럼 
 
 training:
   algorithm: ppo                    # sac | ppo
-  total_timesteps: 240000
+  total_timesteps: 200000
   n_envs: 8
   seed: 7
   device: cpu
@@ -94,12 +95,12 @@ training:
   learning_rate: 0.000015
   buffer_size: 1000000
   learning_starts: 10000
-  demo_episodes: 80
+  demo_episodes: 120
   demo_ratio: 0.25
   demo_anneal_fraction: 0.7
   bc_epochs: 120
   bc_lr: 0.003
-  bc_init_log_std: -2.6
+  bc_init_log_std: -2.8
   dagger_rounds: 0
   dagger_episodes: 30
   dagger_epochs: 60
@@ -128,8 +129,8 @@ training:
     bc_anchor_start: 0.50
     bc_anchor_end: 0.10
     min_std: 0.03
-    max_std: 0.10
-  eval_every_steps: 40000
+    max_std: 0.08
+  eval_every_steps: 25000
   eval_episodes: 30
   checkpoint_every_steps: 100000
 

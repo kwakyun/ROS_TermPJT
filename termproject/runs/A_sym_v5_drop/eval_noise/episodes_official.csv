@@ -1,0 +1,11 @@
+seed,start_x,start_y,start_yaw_deg,success,end_reason,max_stage,drops,sim_time_s,final_margin_mm,final_yaw_deg,events
+0,0.30261749948792543,0.05220869085453218,113.70727935382206,False,dropped,3,2,30.0,-87.68,-6.469406676225334,3.6:grasped;4.1:lifted;4.8:placed;5.45:lifted;6.05:dropped;6.05:approach;7.65:grasped;8.05:lifted;8.35:dropped;8.35:approach;15.7:grasped;16.25:approach
+1,0.30297562126038363,-0.05669290641083179,91.26471901864525,False,outside_goal,4,0,30.0,-0.21,85.26859717875355,2.6:grasped;2.9:lifted;3.7:placed;4.2:lifted;4.95:placed;5.7:lifted;5.9:placed;6.65:released
+2,0.2864981620743623,0.018891961785071104,22.41563857534047,False,out_of_area,1,0,9.7,-159.06,56.59868915987712,2.75:grasped;3.05:approach;4.35:grasped;4.6:approach;5.4:grasped;5.7:approach;5.75:grasped;5.9:approach
+3,0.3140746290845529,-0.04635935760943159,-39.15785137681729,True,success,5,0,7.95,10.66,-89.23383541190714,3.15:grasped;3.6:lifted;4.0:placed;4.6:lifted;5.25:placed;6.0:released;7.95:success
+4,0.32229811645125944,0.005272968091619784,144.79742853230064,False,dropped,3,1,30.0,-10.71,129.93550222498843,4.2:grasped;4.45:lifted;8.0:placed;8.15:lifted;9.5:dropped;9.5:approach
+5,0.2729254626436301,0.059901133807808565,54.852880108997034,False,dropped,2,1,30.0,-140.24,-14.755547971216746,2.4:grasped;3.0:lifted;3.1:dropped;3.1:approach;3.85:grasped;3.9:approach;4.1:grasped;4.55:approach;4.85:grasped;5.0:approach
+6,0.3107950596698414,-0.04524331501353719,-161.37747630144028,True,success,5,0,8.1,9.48,-179.18377556184285,3.35:grasped;3.75:lifted;5.35:placed;6.15:released;8.1:success
+7,0.31782416572512284,-0.003847805658753506,-70.90832626402255,False,dropped,3,1,30.0,-30.42,-164.95806224616672,3.95:grasped;4.4:lifted;5.05:placed;5.3:lifted;5.85:dropped;5.85:approach;6.7:grasped;7.4:approach
+8,0.2764172157883665,-0.0025241455004739663,-93.11322766311702,True,success,5,0,8.75,3.54,-92.14498676999224,2.3:grasped;2.45:lifted;4.6:placed;5.65:lifted;6.1:placed;6.8:released;8.75:success
+9,0.27159526406805584,-0.007530239984458953,-5.420042281982998,False,dropped,4,2,30.0,-158.51,-39.80557109226519,2.05:grasped;2.35:lifted;3.55:placed;3.75:lifted;4.9:placed;5.2:released;5.65:lifted;6.9:placed;7.15:lifted;8.25:dropped;8.25:approach;8.5:grasped;8.75:lifted;9.25:dropped;9.25:approach

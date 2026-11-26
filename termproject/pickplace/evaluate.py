@@ -47,6 +47,7 @@ def run_episode(model, env: PickPlaceEnv, seed: int, frame_cb=None) -> dict:
 
 def summarize(rows: list[dict], bins: int) -> dict:
     succ = np.array([r["success"] for r in rows])
+    oneshot = np.array([bool(r["success"]) and int(r["drops"]) == 0 for r in rows])
     yaw = np.array([r["start_yaw_deg"] for r in rows])
     edges = np.linspace(-180, 180, bins + 1)
     per_bin = []
@@ -61,6 +62,7 @@ def summarize(rows: list[dict], bins: int) -> dict:
     times = [r["sim_time_s"] for r in rows if r["success"]]
     return {
         "episodes": len(rows), "successes": int(succ.sum()), "success_rate": float(succ.mean()),
+        "oneshot_successes": int(oneshot.sum()), "oneshot_success_rate": float(oneshot.mean()),
         "end_reasons": reasons, "yaw_bins": per_bin,
         "success_margin_mm_mean": float(np.mean(margins)) if margins else None,
         "success_margin_mm_min": float(np.min(margins)) if margins else None,
@@ -115,10 +117,13 @@ def main() -> None:
         print(f"{r['seed']:>4}  ({r['start_x']:.3f},{r['start_y']:+.3f},{r['start_yaw_deg']:+7.1f}°)  "
               f"{r['end_reason']:<20} {r['sim_time_s']:5.1f}  {r['final_margin_mm']:+6.1f}")
     o = summary["official"]
-    print(f"official {o['successes']}/{o['episodes']}  end_reasons={o['end_reasons']}")
+    print(f"official {o['successes']}/{o['episodes']} (oneshot {o['oneshot_successes']}/{o['episodes']})  "
+          f"end_reasons={o['end_reasons']}")
     if extra:
         e = summary["extra"]
-        print(f"extra {e['successes']}/{e['episodes']} ({e['success_rate']*100:.1f}%)  end_reasons={e['end_reasons']}")
+        print(f"extra {e['successes']}/{e['episodes']} ({e['success_rate']*100:.1f}%, "
+              f"oneshot {e['oneshot_successes']}/{e['episodes']}={e['oneshot_success_rate']*100:.1f}%)  "
+              f"end_reasons={e['end_reasons']}")
     print(f"saved {out}")
 
 

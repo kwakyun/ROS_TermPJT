@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import time
@@ -52,8 +53,13 @@ def quick_eval(model, cfg: dict, episodes: int, seed: int, vec_norm=None) -> dic
     return {"success_rate": succ / episodes, "mean_max_stage": float(np.mean(stages))}
 
 
-def markov_demo_action(env: PickPlaceEnv) -> np.ndarray:
-    """상태 기반 순수 마르코프 전문가 행동(타이머 의존 없음)."""
+CARRY_Z = 0.035
+
+
+def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarray:
+    """그리퍼 각도 기준 수정·낮은 운반 높이(0.035 m)·히스테리시스 적용 시연 전문가."""
+    if state is None:
+        state = {"carry": False}
     q = env.joint_q()
     f = env.kin.fk(q)
     gp, gyaw = f["grasp_point"], f["gripper_yaw"]
@@ -72,6 +78,7 @@ def markov_demo_action(env: PickPlaceEnv) -> np.ndarray:
     gq = float(q[GRIPPER_INDEX])
 
     if d_cube_goal_xy < 0.012 and cube[2] < env.rest_z + 0.004:
+        state["carry"] = False
         if gq < 0.48:
             a[4] = -1.0
         else:
@@ -79,14 +86,18 @@ def markov_demo_action(env: PickPlaceEnv) -> np.ndarray:
             a[4] = -1.0
         return a
 
-    gripped = env.grip_closed_cmd and (0.01 < gq < 0.20)
+    gripped = env.grip_closed_cmd and (-0.06 < gq < 0.20)
+    if not gripped:
+        state["carry"] = False
     if gripped:
         a[4] = 1.0
         if d_gp_goal_xy > 0.010:
-            if gp[2] < 0.052:
-                a[:3] = move_to(np.array([gp[0], gp[1], 0.062]))
+            if gp[2] > CARRY_Z - 0.006:
+                state["carry"] = True
+            if not state["carry"]:
+                a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]))
             else:
-                a[:3] = move_to(np.array([goal[0], goal[1], 0.062]))
+                a[:3] = move_to(np.array([goal[0], goal[1], CARRY_Z]))
                 a[3] = float(np.clip(-fold_quarter(env.cube_yaw()) / env.act_scale[3], -1.0, 1.0))
         else:
             a[:3] = move_to(np.array([goal[0], goal[1], env.rest_z + 0.001]))
@@ -111,11 +122,21 @@ def markov_demo_action(env: PickPlaceEnv) -> np.ndarray:
 def collect_demo_transitions(
     cfg: dict, n_episodes: int, seed_start: int = 20000, markov: bool = True
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, int]:
-    """성공 시연 궤적 및 할인수익 수집(시드 20000+, 공식/검증/추가 평가와 완전 분리)."""
+    """성공 시연 궤적 및 할인수익 수집(시드 20000+, DR 시 관측 오염은 제거해 물리 DR만 유지)."""
     from tools.scripted_check import scripted_action
 
     gamma = float(cfg["training"]["gamma"])
-    env = PickPlaceEnv(config=cfg)
+    demo_cfg = copy.deepcopy(cfg)
+    if demo_cfg.get("randomization", {}).get("enabled", False):
+        dr = demo_cfg["randomization"]
+        dr["obs_pos_bias_m"] = 0.0
+        dr["obs_pos_noise_m"] = 0.0
+        dr["obs_yaw_bias_rad"] = 0.0
+        dr["obs_yaw_noise_rad"] = 0.0
+        dr["obs_delay_steps"] = [0, 0]
+        dr["obs_dropout_prob"] = 0.0
+        dr["occlusion_radius_m"] = 0.0
+    env = PickPlaceEnv(config=demo_cfg)
     env.set_curriculum(1.0)
     obs_l, next_l, act_l, rew_l, done_l, ret_l = [], [], [], [], [], []
     ok_eps = 0
@@ -125,12 +146,13 @@ def collect_demo_transitions(
         last_s = s
         obs, _ = env.reset(seed=s)
         phase = {"name": "above", "t": 0}
+        expert_state = {"carry": False}
         ep: list[tuple[np.ndarray, np.ndarray, np.ndarray, float, float]] = []
         done = False
         info: dict = {}
         ep_steps = 0
         while not done and (not markov or ep_steps < 280):
-            raw_act = (markov_demo_action(env) if markov else scripted_action(env, phase)).astype(np.float32)
+            raw_act = (markov_demo_action(env, expert_state) if markov else scripted_action(env, phase)).astype(np.float32)
             act = np.clip(raw_act, -1.0 if markov else -0.85, 1.0 if markov else 0.85).astype(np.float32)
             next_obs, rew, term, trunc, info = env.step(act)
             done = bool(term or trunc)
@@ -200,6 +222,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--n-envs", type=int, default=None)
     ap.add_argument("--demo-episodes", type=int, default=None, help="시연 워밍업/버퍼용 성공 시연 수")
+    ap.add_argument("--drop-penalty", type=float, default=None, help="운반 중 낙하 1회당 감점 덮어쓰기")
     ap.add_argument("--resume", default=None, help="이어 학습할 policy zip")
     args = ap.parse_args()
 
@@ -209,6 +232,8 @@ def main() -> None:
     from .rl import AnchoredPPO, DemoMixReplayBuffer, LayerNormSACPolicy, StableSAC
 
     cfg = load_config(*args.exp)
+    if args.drop_penalty is not None:
+        cfg["reward"]["drop_penalty"] = float(args.drop_penalty)
     tr = cfg["training"]
     steps = int(args.steps or tr["total_timesteps"])
     seed = int(args.seed if args.seed is not None else tr["seed"])
@@ -347,11 +372,12 @@ def main() -> None:
                         n_ok = 0
                         for ep_i in range(dagger_episodes):
                             o, _ = d_env.reset(seed=21000 + r_idx * 1000 + ep_i)
+                            expert_state = {"carry": False}
                             done = False
                             ep_st = 0
                             info_d: dict = {}
                             while not done and ep_st < 280:
-                                expert_a = markov_demo_action(d_env)
+                                expert_a = markov_demo_action(d_env, expert_state)
                                 new_obs.append(o.astype(np.float32))
                                 new_act.append(np.clip(expert_a, -1.0, 1.0).astype(np.float32))
                                 o_in = vec_norm.normalize_obs(o)

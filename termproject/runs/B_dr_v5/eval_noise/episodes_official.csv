@@ -1,0 +1,11 @@
+seed,start_x,start_y,start_yaw_deg,success,end_reason,max_stage,drops,sim_time_s,final_margin_mm,final_yaw_deg,events
+0,0.30261749948792543,0.05220869085453218,113.70727935382206,False,outside_goal,4,2,30.0,-67.35,109.31241649510198,3.45:grasped;3.9:lifted;5.3:dropped;5.3:approach;5.9:grasped;6.05:lifted;6.95:placed;8.15:released;9.85:lifted;11.75:dropped;11.75:approach;12.7:grasped;12.75:lifted;13.3:placed;15.3:released
+1,0.30297562126038363,-0.05669290641083179,91.26471901864525,True,success,5,0,7.85,2.9,89.26087488967305,2.6:grasped;3.0:lifted;3.55:placed;4.2:lifted;5.2:placed;5.9:released;7.85:success
+2,0.2864981620743623,0.018891961785071104,22.41563857534047,True,success,5,0,9.9,5.88,0.16361873843099967,2.75:grasped;3.2:lifted;5.65:placed;6.5:lifted;7.05:placed;7.95:released;9.9:success
+3,0.3140746290845529,-0.04635935760943159,-39.15785137681729,True,success,5,0,7.85,8.31,-88.06172141602154,3.2:grasped;3.65:lifted;3.8:placed;4.5:lifted;5.15:placed;5.9:released;7.85:success
+4,0.32229811645125944,0.005272968091619784,144.79742853230064,False,outside_goal,4,0,30.0,-19.56,-33.690067525979785,4.6:grasped;5.05:approach;8.55:grasped;8.7:lifted;9.45:placed;12.05:released
+5,0.2729254626436301,0.059901133807808565,54.852880108997034,False,dropped,2,1,30.0,-40.08,4.79317215269539,2.8:grasped;3.2:lifted;6.9:dropped;6.9:approach;13.0:grasped;13.4:approach
+6,0.3107950596698414,-0.04524331501353719,-161.37747630144028,False,out_of_area,4,0,11.3,-149.74,-176.26688373920535,3.85:grasped;4.1:lifted;4.4:placed;6.05:lifted;6.15:placed;8.2:released
+7,0.31782416572512284,-0.003847805658753506,-70.90832626402255,False,dropped,3,1,30.0,-44.9,-88.29077156840695,3.55:grasped;4.0:lifted;4.35:placed;4.5:lifted;5.15:dropped;5.15:approach
+8,0.2764172157883665,-0.0025241455004739663,-93.11322766311702,True,success,5,0,9.4,0.4,-91.34371229913182,2.4:grasped;2.7:lifted;4.75:placed;6.0:lifted;6.2:placed;7.2:released;9.4:success
+9,0.27159526406805584,-0.007530239984458953,-5.420042281982998,False,dropped,3,2,30.0,-154.38,7.646081704917539,2.0:grasped;2.35:lifted;3.05:placed;3.25:lifted;3.95:placed;4.1:lifted;4.5:dropped;4.5:approach;5.25:grasped;5.45:lifted;6.35:dropped;6.35:approach;25.35:grasped;25.6:approach;25.85:grasped;25.95:approach

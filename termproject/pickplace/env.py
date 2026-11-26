@@ -317,7 +317,9 @@ class PickPlaceEnv(gym.Env):
                           cube_on_floor=con["floor"], bottom_clearance_m=clearance,
                           robot_cube_contact=con["robot"], gripper_open=gripper_open,
                           goal_margin_m=margin)
+        prev_drops = self.tracker.drops
         stage = self.tracker.update(facts, self.data.time)
+        dropped_now = self.tracker.drops > prev_drops
         success = self.tracker.success
         tw = self.cfg["task"]["workspace_cube_xy"]
         out = not (tw["x"][0] <= cpos[0] <= tw["x"][1] and tw["y"][0] <= cpos[1] <= tw["y"][1]) \
@@ -339,6 +341,7 @@ class PickPlaceEnv(gym.Env):
             "gripper_open_frac": float(np.clip(q[GRIPPER_INDEX] / (0.6 * self.cfg["robot"]["gripper_open_rad"]), 0.0, 1.0)),
             "cube_yaw": self.cube_yaw(), "gripper_yaw": self.kin.fk(q)["gripper_yaw"],
             "push_displacement": push, "action": action, "success": success, "failure": out,
+            "dropped_now": dropped_now,
         }, self.cfg["reward"], self.rew_variant)
 
         terminated = bool(success or out)
