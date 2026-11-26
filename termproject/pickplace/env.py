@@ -335,6 +335,8 @@ class PickPlaceEnv(gym.Env):
             "inside_goal": margin >= 0.0, "released": (not con["robot"]) and gripper_open,
             "ever_lifted": self.tracker.ever_lifted,
             "hold_fraction": self.tracker.hold_elapsed / self.tracker.hold_time,
+            "grip_closed_cmd": self.grip_closed_cmd,
+            "gripper_open_frac": float(np.clip(q[GRIPPER_INDEX] / (0.6 * self.cfg["robot"]["gripper_open_rad"]), 0.0, 1.0)),
             "cube_yaw": self.cube_yaw(), "gripper_yaw": self.kin.fk(q)["gripper_yaw"],
             "push_displacement": push, "action": action, "success": success, "failure": out,
         }, self.cfg["reward"], self.rew_variant)

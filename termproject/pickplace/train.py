@@ -49,15 +49,15 @@ def quick_eval(model, cfg: dict, episodes: int, seed: int) -> dict:
     return {"success_rate": succ / episodes, "mean_max_stage": float(np.mean(stages))}
 
 
-def seed_replay_buffer_with_demos(
-    model, cfg: dict, n_episodes: int, n_envs: int, seed_start: int = 20000
-) -> tuple[int, int]:
-    """스크립트 성공 시연으로 SAC 리플레이 버퍼를 사전 초기화한다(시드 20000+ 사용)."""
+def collect_demo_transitions(
+    cfg: dict, n_episodes: int, seed_start: int = 20000
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, int]:
+    """스크립트 성공 시연 궤적을 수집한다(시드 20000+, tanh 경계 포화 방지 위해 행동 ±0.85 클립)."""
     from tools.scripted_check import scripted_action
 
     env = PickPlaceEnv(config=cfg)
     env.set_curriculum(1.0)
-    transitions: list[tuple[np.ndarray, np.ndarray, np.ndarray, float, float]] = []
+    obs_l, next_l, act_l, rew_l, done_l = [], [], [], [], []
     ok_eps = 0
     last_s = seed_start
     max_attempts = max(n_episodes * 5, 100)
@@ -69,42 +69,33 @@ def seed_replay_buffer_with_demos(
         done = False
         info: dict = {}
         while not done:
-            act = scripted_action(env, phase).astype(np.float32)
+            raw_act = scripted_action(env, phase).astype(np.float32)
+            act = np.clip(raw_act, -0.85, 0.85).astype(np.float32)
             next_obs, rew, term, trunc, info = env.step(act)
             done = bool(term or trunc)
-            ep.append((
-                obs.astype(np.float32),
-                next_obs.astype(np.float32),
-                act,
-                float(rew),
-                float(done),
-            ))
+            ep.append((obs.astype(np.float32), next_obs.astype(np.float32), act, float(rew), float(done)))
             obs = next_obs
         if info.get("is_success"):
-            transitions.extend(ep)
+            for o, no, a, r, d in ep:
+                obs_l.append(o); next_l.append(no); act_l.append(a); rew_l.append(r); done_l.append(d)
             ok_eps += 1
             if ok_eps >= n_episodes:
                 break
     env.close()
-
-    n_batches = len(transitions) // n_envs
-    infos = [{} for _ in range(n_envs)]
-    for b in range(n_batches):
-        chunk = transitions[b * n_envs:(b + 1) * n_envs]
-        obs_b = np.stack([t[0] for t in chunk], axis=0)
-        next_obs_b = np.stack([t[1] for t in chunk], axis=0)
-        act_b = np.stack([t[2] for t in chunk], axis=0)
-        rew_b = np.array([t[3] for t in chunk], dtype=np.float32)
-        done_b = np.array([t[4] for t in chunk], dtype=np.float32)
-        model.replay_buffer.add(obs_b, next_obs_b, act_b, rew_b, done_b, infos)
-
-    n_seeded = n_batches * n_envs
     print(
-        f"[demo] seeded {n_seeded} transitions from {ok_eps}/{n_episodes} successful episodes "
+        f"[demo] collected {len(obs_l)} transitions from {ok_eps}/{n_episodes} successful episodes "
         f"(seeds {seed_start}..{last_s})",
         flush=True,
     )
-    return n_seeded, ok_eps
+    return (
+        np.asarray(obs_l, dtype=np.float32),
+        np.asarray(next_l, dtype=np.float32),
+        np.asarray(act_l, dtype=np.float32),
+        np.asarray(rew_l, dtype=np.float32),
+        np.asarray(done_l, dtype=np.float32),
+        ok_eps,
+        last_s,
+    )
 
 
 def main() -> None:
@@ -114,14 +105,15 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=None)
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--n-envs", type=int, default=None)
-    ap.add_argument("--demo-episodes", type=int, default=None, help="SAC 리플레이 버퍼 초기화용 스크립트 성공 시연 수")
+    ap.add_argument("--demo-episodes", type=int, default=None, help="RLPD 시연 혼합 버퍼용 성공 시연 수")
     ap.add_argument("--resume", default=None, help="이어 학습할 policy zip")
     args = ap.parse_args()
 
     import torch
-    from stable_baselines3 import PPO, SAC
+    from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+    from .rl import DemoMixReplayBuffer, LayerNormSACPolicy, StableSAC
 
     cfg = load_config(*args.exp)
     tr = cfg["training"]
@@ -129,7 +121,9 @@ def main() -> None:
     seed = int(args.seed if args.seed is not None else tr["seed"])
     n_envs = int(args.n_envs or tr["n_envs"])
     demo_episodes = int(args.demo_episodes if args.demo_episodes is not None else tr.get("demo_episodes", 0))
-    torch.set_num_threads(1)
+    demo_ratio = float(tr.get("demo_ratio", 0.25))
+    demo_anneal_fraction = float(tr.get("demo_anneal_fraction", 0.7))
+    torch.set_num_threads(int(tr.get("torch_threads", 2)))
 
     run_dir = ROOT / "runs" / args.run
     if run_dir.exists() and not args.resume:
@@ -147,15 +141,22 @@ def main() -> None:
     algo = tr["algorithm"].lower()
     policy_kwargs = {"net_arch": list(tr["net_arch"])}
     if args.resume:
-        model = (SAC if algo == "sac" else PPO).load(args.resume, env=venv, device=tr["device"])
+        model = (StableSAC if algo == "sac" else PPO).load(args.resume, env=venv, device=tr["device"])
     elif algo == "sac":
-        model = SAC("MlpPolicy", venv, learning_rate=tr["learning_rate"], buffer_size=tr["buffer_size"],
-                    learning_starts=tr["learning_starts"], batch_size=tr["batch_size"], gamma=tr["gamma"],
-                    tau=tr["tau"], ent_coef=tr["ent_coef"], train_freq=tr["train_freq"],
-                    gradient_steps=tr["gradient_steps"], policy_kwargs=policy_kwargs, seed=seed,
-                    device=tr["device"], tensorboard_log=str(run_dir / "tensorboard"), verbose=1)
-        if demo_episodes > 0:
-            seed_replay_buffer_with_demos(model, cfg, demo_episodes, n_envs)
+        rb_cls = DemoMixReplayBuffer if demo_episodes > 0 else None
+        model = StableSAC(
+            LayerNormSACPolicy, venv, learning_rate=tr["learning_rate"], buffer_size=tr["buffer_size"],
+            learning_starts=tr["learning_starts"], batch_size=tr["batch_size"], gamma=tr["gamma"],
+            tau=tr["tau"], ent_coef=tr["ent_coef"], train_freq=tr["train_freq"],
+            gradient_steps=tr["gradient_steps"], policy_kwargs=policy_kwargs,
+            replay_buffer_class=rb_cls, seed=seed, device=tr["device"],
+            tensorboard_log=str(run_dir / "tensorboard"), verbose=1,
+        )
+        if demo_episodes > 0 and isinstance(model.replay_buffer, DemoMixReplayBuffer):
+            d_obs, d_next, d_act, d_rew, d_done, ok_eps, _ = collect_demo_transitions(cfg, demo_episodes)
+            model.replay_buffer.set_demos(d_obs, d_next, d_act, d_rew, d_done, demo_ratio=demo_ratio)
+            print(f"[demo] loaded {len(d_obs)} transitions into DemoMixReplayBuffer ({ok_eps} eps, ratio={demo_ratio})",
+                  flush=True)
     elif algo == "ppo":
         p = tr["ppo"]
         model = PPO("MlpPolicy", venv, learning_rate=tr["learning_rate"], n_steps=p["n_steps"],
@@ -166,10 +167,15 @@ def main() -> None:
     else:
         raise ValueError(f"unknown algorithm {algo}")
 
+    if isinstance(model, StableSAC):
+        model.min_ent_coef = float(tr.get("min_ent_coef", 0.005))
+        model.max_ent_coef = float(tr.get("max_ent_coef", 0.20))
+        model.max_grad_norm = float(tr.get("max_grad_norm", 10.0))
+
     cur = cfg["curriculum"]
 
     class CurriculumAndEval(BaseCallback):
-        """커리큘럼(시작 범위 확대) + 주기적 검증·최고 정책 저장."""
+        """커리큘럼(시작 범위 확대) + 시연 혼합비 감쇠 + 주기적 검증·최고 정책 저장."""
 
         def __init__(self) -> None:
             super().__init__()
@@ -186,12 +192,22 @@ def main() -> None:
             frac = self.num_timesteps / max(1, steps * cur["full_at_fraction"])
             return float(min(1.0, cur["start_scale"] + (1 - cur["start_scale"]) * frac))
 
+        def _demo_ratio(self) -> float:
+            if demo_ratio <= 0.0 or demo_anneal_fraction <= 0.0:
+                return 0.0
+            frac = min(1.0, self.num_timesteps / max(1, steps * demo_anneal_fraction))
+            return float(demo_ratio * (1.0 - frac))
+
         def _on_training_start(self) -> None:
             self.training_env.env_method("set_curriculum", self._scale())
+            if hasattr(self.model.replay_buffer, "set_demo_ratio"):
+                self.model.replay_buffer.set_demo_ratio(self._demo_ratio())
 
         def _on_step(self) -> bool:
             if self.n_calls % 1000 == 0:
                 self.training_env.env_method("set_curriculum", self._scale())
+                if hasattr(self.model.replay_buffer, "set_demo_ratio"):
+                    self.model.replay_buffer.set_demo_ratio(self._demo_ratio())
             if self.num_timesteps >= self.next_eval:
                 self.next_eval += int(tr["eval_every_steps"])
                 r = quick_eval(self.model, cfg, int(tr["eval_episodes"]), seed=50000)

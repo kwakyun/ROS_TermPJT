@@ -19,12 +19,20 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
     d_goal_xy = float(np.linalg.norm(s["cube_pos"][:2] - s["goal_xy"]))
     stage = {
         "reach": cfg["reach_scale"] * (1.0 - np.tanh(10.0 * d_reach)),
+        "pre_grasp": (0.5 * (cfg["reach_scale"] + cfg["grasp"])
+                      if (d_reach < 0.015 and s.get("grip_closed_cmd", False)
+                          and not s["grasped"] and not s["ever_lifted"])
+                      else 0.0),
         "grasp": cfg["grasp"] if s["grasped"] else 0.0,
         "lift": (cfg["lift"] * (0.7 + 0.3 * min(s["clearance"] / 0.03, 1.0))
                  if s["lifted"] else 0.0),
         "carry": (cfg["carry"] * (0.6 + 0.4 * (1.0 - np.tanh(10.0 * d_goal_xy)))
                   if s["lifted"] else 0.0),
         "place": cfg["place"] if (s["grasped"] and s["on_floor"] and s["inside_goal"]) else 0.0,
+        "opening": (cfg["place"] + (cfg["release"] - cfg["place"]) * s.get("gripper_open_frac", 0.0)
+                    if (s["ever_lifted"] and s["on_floor"] and s["inside_goal"]
+                        and not s.get("grip_closed_cmd", True))
+                    else 0.0),
         "release": (cfg["release"] + cfg["hold"] * s["hold_fraction"]
                     if (s["released"] and s["on_floor"] and s["inside_goal"] and s["ever_lifted"])
                     else 0.0),
@@ -37,6 +45,10 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
         terms["align_grasp"] = w * np.cos(4.0 * e_grasp) if near else 0.0
         carrying_near = s["lifted"] and d_goal_xy < 0.04
         terms["align_place"] = w * np.cos(4.0 * fold_quarter(s["cube_yaw"])) if carrying_near else 0.0
+    terms["closed_far"] = (-cfg.get("closed_far_penalty", 0.05)
+                           if (s.get("grip_closed_cmd", False) and not s["grasped"]
+                               and not s["ever_lifted"] and d_reach > 0.025)
+                           else 0.0)
     terms["push"] = -cfg["push_penalty_per_m"] * s["push_displacement"]
     terms["action"] = -cfg["action_cost"] * float(np.sum(np.square(s["action"][:4])))
     terms["success"] = cfg["success_bonus"] if s["success"] else 0.0
