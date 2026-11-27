@@ -118,8 +118,9 @@ class PickPlaceEnv(gym.Env):
         self.tcp_high = np.array(c["tcp_high"], dtype=float)
         self.vmax_nominal = np.array(r["max_joint_vel_rad_s"], dtype=float)
         self.obs_variant = self.cfg["observation"]["variant"]
+        self.include_goal_margin = bool(self.cfg["observation"].get("include_goal_margin", False))
         self.rew_variant = self.cfg["reward"]["variant"]
-        self.observation_space = make_space(self.obs_variant)
+        self.observation_space = make_space(self.obs_variant, self.include_goal_margin)
         self.action_space = spaces.Box(-1.0, 1.0, shape=(5,), dtype=np.float32)
         self.mapper = ActionMapper(self.cfg, self.kin)
         self.tracker = SuccessTracker(dt=self.dt, hold_time=t["hold_time_s"],
@@ -290,7 +291,9 @@ class PickPlaceEnv(gym.Env):
             variant=self.obs_variant, joint_q=q, grasp_point=gp, gripper_yaw=f["gripper_yaw"],
             cube_xyz=cube_xyz, cube_yaw=cube_yaw, goal_xyz=self.goal_xyz, grasped=grasped,
             gripper_cmd_closed=self.grip_closed_cmd, cube_visible=meas_xy is not None,
-            time_fraction=1.0 - self.steps / self.max_steps)
+            time_fraction=1.0 - self.steps / self.max_steps,
+            include_goal_margin=self.include_goal_margin,
+            cube_half=self.half, goal_half=self.goal_half)
 
     # ================================================================ 제어
     def action_to_joint_target(self, action: np.ndarray, q_meas: np.ndarray) -> tuple[np.ndarray, float]:

@@ -18,14 +18,24 @@ from .geometry import align_error, fold_quarter, wrap_pi, yaw_features
 
 BASE_SIZE = 28
 SYM_EXTRA = 2
+MARGIN_EXTRA = 2
 
 
-def observation_size(variant: str) -> int:
-    return BASE_SIZE + (SYM_EXTRA if variant == "sym" else 0)
+def observation_size(variant: str, include_goal_margin: bool = False) -> int:
+    return BASE_SIZE + (SYM_EXTRA if variant == "sym" else 0) + (MARGIN_EXTRA if include_goal_margin else 0)
 
 
-def make_space(variant: str) -> spaces.Box:
-    return spaces.Box(-np.inf, np.inf, shape=(observation_size(variant),), dtype=np.float32)
+def make_space(variant: str, include_goal_margin: bool = False) -> spaces.Box:
+    return spaces.Box(-np.inf, np.inf, shape=(observation_size(variant, include_goal_margin),), dtype=np.float32)
+
+
+def est_goal_margin(cube_xy: np.ndarray, cube_yaw: float, goal_xy: np.ndarray,
+                    cube_half: float = 0.0125, goal_half: float = 0.025) -> float:
+    """카메라 추정 (xy, yaw) 기반 밑면 4꼭짓점 목표 진입 여유 [m] (90° 대칭 불변)."""
+    extent = cube_half * (abs(float(np.cos(cube_yaw))) + abs(float(np.sin(cube_yaw))))
+    dx = abs(float(cube_xy[0]) - float(goal_xy[0])) + extent
+    dy = abs(float(cube_xy[1]) - float(goal_xy[1])) + extent
+    return float(goal_half - max(dx, dy))
 
 
 @dataclass
@@ -87,8 +97,10 @@ class CubeEstimator:
 def build_observation(*, variant: str, joint_q: np.ndarray, grasp_point: np.ndarray,
                       gripper_yaw: float, cube_xyz: np.ndarray, cube_yaw: float,
                       goal_xyz: np.ndarray, grasped: bool, gripper_cmd_closed: bool,
-                      cube_visible: bool, time_fraction: float) -> np.ndarray:
-    """관측 벡터 (base 28차원 / sym 30차원). 순서를 바꾸면 학습한 정책을 못 쓴다.
+                      cube_visible: bool, time_fraction: float,
+                      include_goal_margin: bool = False,
+                      cube_half: float = 0.0125, goal_half: float = 0.025) -> np.ndarray:
+    """관측 벡터 (base 28 / sym 30, include_goal_margin 시 +2차원). 순서를 바꾸면 학습한 정책을 못 쓴다.
 
     [0:6]   관절각 6 (pan, lift, elbow, wrist_flex, wrist_roll, gripper)
     [6:9]   제어점(grasp point) XYZ
@@ -100,6 +112,7 @@ def build_observation(*, variant: str, joint_q: np.ndarray, grasp_point: np.ndar
     [22:25] 목표 - 제어점
     [25] 잡힘 추정(그리퍼 각도 기반)  [26] 닫힘 명령  [27] 남은 시간 비율
     sym 추가: [28] 잡기 정렬 오차 fold45(θ-φ)/(π/4)  [29] 놓기 정렬 fold45(θ)/(π/4)
+    margin 추가: est_margin/goal_half [-2, 1], est_inside (est_margin >= 1 mm)
     """
     sym = variant == "sym"
     parts = [
@@ -118,5 +131,8 @@ def build_observation(*, variant: str, joint_q: np.ndarray, grasp_point: np.ndar
             align_error(cube_yaw, gripper_yaw) / (np.pi / 4),
             fold_quarter(cube_yaw) / (np.pi / 4),
         ]))
+    if include_goal_margin:
+        m = est_goal_margin(cube_xyz[:2], cube_yaw, goal_xyz[:2], cube_half, goal_half)
+        parts.append(np.array([np.clip(m / goal_half, -2.0, 1.0), float(m >= 0.001)]))
     _ = cube_visible  # 가시성은 추정기에 반영됨(관측 차원은 고정)
     return np.concatenate(parts).astype(np.float32)

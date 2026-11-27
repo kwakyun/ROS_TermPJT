@@ -23,6 +23,7 @@ import yaml
 from .env import ROOT, PickPlaceEnv, load_config
 from .geometry import align_error, bottom_corners, fold_quarter, region_margin
 from .kinematics import GRIPPER_INDEX
+from .observation import est_goal_margin
 
 
 def make_env_fn(cfg: dict, rank: int, seed: int, monitor_dir: Path):
@@ -85,7 +86,7 @@ def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarr
         state["settled"] = 0
 
     if state.get("releasing", False) or state["settled"] >= 3:
-        if gq >= 0.50 and margin < 0.0:
+        if gq >= 0.50 and margin < 0.001:
             state["releasing"] = False
             state["carry"] = False
             state["settled"] = 0
@@ -109,20 +110,21 @@ def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarr
         place_xy = env.goal_xy - grasp_off
         place_xy[0] = min(place_xy[0], 0.393)
         d_target_xy = float(np.linalg.norm(gp[:2] - place_xy))
-        if d_target_xy > 0.010 or abs(yaw45) > 0.14:
-            if gp[2] > CARRY_Z - 0.005:
-                state["carry"] = True
-            if not state["carry"]:
-                a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]))
-            else:
-                a[:3] = move_to(np.array([place_xy[0], place_xy[1], CARRY_Z]))
-                a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
+        if gp[2] > CARRY_Z - 0.005:
+            state["carry"] = True
+        if not state["carry"]:
+            a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]))
+        elif d_target_xy > 0.010 or abs(yaw45) > 0.14:
+            a[:3] = move_to(np.array([place_xy[0], place_xy[1], CARRY_Z]))
+            a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
         else:
             a[:3] = move_to(np.array([place_xy[0], place_xy[1], env.rest_z - 0.003]))
             a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
         return a
 
-    if d_gp_cube < 0.007 and abs(e) < 0.08:
+    dz_gp_cube = abs(float(gp[2] - grasp_pt[2]))
+    can_close = (d_gp_cube_xy < 0.006 and dz_gp_cube < 0.010) if cube[0] > 0.365 else (d_gp_cube < 0.007)
+    if can_close and abs(e) < 0.08:
         a[:3] = move_to(grasp_pt, gain=0.5)
         a[3] = float(np.clip(0.5 * e / env.act_scale[3], -1.0, 1.0))
         a[4] = 1.0
@@ -138,9 +140,11 @@ def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarr
 
 
 def collect_demo_transitions(
-    cfg: dict, n_episodes: int, seed_start: int = 20000, markov: bool = True
+    cfg: dict, n_episodes: int, seed_start: int = 20000, markov: bool = True,
+    recovery_episodes: int = 0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, int]:
     """성공 시연 궤적 및 할인수익 수집(시드 20000+, DR 시 관측 오염은 제거해 물리 DR만 유지)."""
+    import mujoco
     from tools.scripted_check import scripted_action
 
     gamma = float(cfg["training"]["gamma"])
@@ -189,10 +193,64 @@ def collect_demo_transitions(
             ok_eps += 1
             if ok_eps >= n_episodes:
                 break
+    rec_eps = 0
+    if markov and recovery_episodes > 0:
+        rng = np.random.default_rng(seed_start + 50000)
+        for attempt in range(max(recovery_episodes * 6, 120)):
+            if rec_eps >= recovery_episodes:
+                break
+            rx, ry, ryaw = float(env.goal_xy[0]), float(env.goal_xy[1]), 0.0
+            for _ in range(100):
+                rx = float(env.goal_xy[0] + rng.uniform(-0.032, 0.020))
+                ry = float(env.goal_xy[1] + rng.uniform(-0.032, 0.032))
+                ryaw = float(rng.uniform(-np.pi, np.pi))
+                m0 = est_goal_margin(np.array([rx, ry]), ryaw, env.goal_xy, env.half, env.goal_half)
+                if -0.030 <= m0 <= -0.0005:
+                    break
+            obs, _ = env.reset(seed=seed_start + 10000 + attempt, options={"cube_xy": [rx, ry], "cube_yaw": ryaw})
+            hover_xyz = np.array([
+                float(np.clip(rx + rng.uniform(-0.015, 0.015), 0.34, 0.41)),
+                float(np.clip(ry + rng.uniform(-0.015, 0.015), -0.06, 0.06)),
+                float(rng.uniform(0.060, 0.095)),
+            ])
+            q_hov, ik_err = env.kin.solve(env.joint_q(), hover_xyz)
+            if ik_err < 0.005:
+                q_hov[4] = float(rng.uniform(-0.5, 0.5))
+                q_hov[5] = float(demo_cfg["robot"]["gripper_open_rad"])
+                env.data.qpos[env.jq] = q_hov
+                env.data.ctrl[env.act] = q_hov
+                env.cmd = q_hov.copy()
+                env.policy_target = q_hov.copy()
+                mujoco.mj_forward(env.model, env.data)
+            env.steps = int(rng.integers(80, 220))
+            env.estimator.reset()
+            obs = env._observe()
+            expert_state = {"carry": False, "releasing": False, "settled": 0}
+            ep = []
+            done = False
+            info = {}
+            ep_steps = 0
+            while not done and ep_steps < 350:
+                act = np.clip(markov_demo_action(env, expert_state).astype(np.float32), -1.0, 1.0).astype(np.float32)
+                next_obs, rew, term, trunc, info = env.step(act)
+                done = bool(term or trunc)
+                ep.append((obs.astype(np.float32), next_obs.astype(np.float32), act, float(rew), float(done)))
+                obs = next_obs
+                ep_steps += 1
+            if info.get("is_success"):
+                rets = np.zeros(len(ep), dtype=np.float32)
+                g = 0.0
+                for idx in range(len(ep) - 1, -1, -1):
+                    g = ep[idx][3] + gamma * g
+                    rets[idx] = g
+                for (o, no, a, r, d), ret_val in zip(ep, rets):
+                    obs_l.append(o); next_l.append(no); act_l.append(a)
+                    rew_l.append(r); done_l.append(d); ret_l.append(float(ret_val))
+                rec_eps += 1
     env.close()
     print(
-        f"[demo] collected {len(obs_l)} transitions from {ok_eps}/{n_episodes} successful episodes "
-        f"(seeds {seed_start}..{last_s}, markov={markov})",
+        f"[demo] collected {len(obs_l)} transitions from {ok_eps}/{n_episodes} standard + "
+        f"{rec_eps}/{recovery_episodes} recovery episodes (seeds {seed_start}..{last_s}, markov={markov})",
         flush=True,
     )
     return (
@@ -324,7 +382,8 @@ def main() -> None:
             )
             if demo_episodes > 0:
                 d_obs, _, d_act, _, _, d_ret, ok_eps, _ = collect_demo_transitions(
-                    cfg, demo_episodes, markov=True
+                    cfg, demo_episodes, markov=True,
+                    recovery_episodes=int(tr.get("recovery_demo_episodes", 0)),
                 )
                 vec_norm.obs_rms.mean = d_obs.mean(axis=0).astype(np.float64)
                 vec_norm.obs_rms.var = np.maximum(d_obs.var(axis=0).astype(np.float64), 1e-6)

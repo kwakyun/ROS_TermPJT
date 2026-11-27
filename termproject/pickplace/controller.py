@@ -64,6 +64,9 @@ class PolicyCore:
         self.dt = 0.002 * int(cfg["control"]["frame_skip"])
         self.max_steps = int(round(float(t["time_limit_s"]) / self.dt))
         self.variant = cfg["observation"]["variant"]
+        self.include_goal_margin = bool(cfg["observation"].get("include_goal_margin", False))
+        self.cube_half = float(t["cube_half_size_m"])
+        self.goal_half = float(t["goal"]["half_size_m"])
         self.grasp_detect = float(cfg["robot"]["grasp_detect_rad"])
         self.estimator = CubeEstimator(rest_z=self.rest_z)
         self.reset()
@@ -84,7 +87,9 @@ class PolicyCore:
             variant=self.variant, joint_q=q, grasp_point=f["grasp_point"], gripper_yaw=f["gripper_yaw"],
             cube_xyz=cube_xyz, cube_yaw=yaw, goal_xyz=self.goal_xyz, grasped=grasped,
             gripper_cmd_closed=self.grip_closed_cmd, cube_visible=cube_xy is not None,
-            time_fraction=1.0 - self.steps / self.max_steps)
+            time_fraction=1.0 - self.steps / self.max_steps,
+            include_goal_margin=self.include_goal_margin,
+            cube_half=self.cube_half, goal_half=self.goal_half)
 
     def step(self, q_meas, cube_xy, cube_yaw) -> tuple[np.ndarray, np.ndarray, dict]:
         obs = self.observe(q_meas, cube_xy, cube_yaw)

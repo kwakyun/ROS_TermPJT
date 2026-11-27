@@ -1,0 +1,187 @@
+{
+  "policy": "/home/rhkrdbswlr/termproject/runs/B_dr_v7/policy_best.zip",
+  "tag": "noise",
+  "official": {
+    "episodes": 10,
+    "successes": 3,
+    "success_rate": 0.3,
+    "oneshot_successes": 3,
+    "oneshot_success_rate": 0.3,
+    "end_reasons": {
+      "timeout_not_released": 2,
+      "outside_goal": 2,
+      "success": 3,
+      "dropped": 1,
+      "out_of_area": 2
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 1,
+        "success_rate": 1.0
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 2,
+        "success_rate": 0.5
+      },
+      {
+        "bin": "[0,45)",
+        "n": 1,
+        "success_rate": 1.0
+      },
+      {
+        "bin": "[45,90)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[90,135)",
+        "n": 2,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[135,180)",
+        "n": 1,
+        "success_rate": 0.0
+      }
+    ],
+    "success_margin_mm_mean": 6.046666666666667,
+    "success_margin_mm_min": 4.44,
+    "success_time_s_mean": 9.266666666666667
+  },
+  "extra": {
+    "episodes": 100,
+    "successes": 35,
+    "success_rate": 0.35,
+    "oneshot_successes": 33,
+    "oneshot_success_rate": 0.33,
+    "end_reasons": {
+      "success": 35,
+      "timeout_not_released": 11,
+      "grasp_fail": 1,
+      "outside_goal": 13,
+      "dropped": 18,
+      "timeout_carrying": 7,
+      "out_of_area": 13,
+      "lift_fail": 2
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 3,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 11,
+        "success_rate": 0.36363636363636365
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 15,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 12,
+        "success_rate": 0.25
+      },
+      {
+        "bin": "[0,45)",
+        "n": 12,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[45,90)",
+        "n": 14,
+        "success_rate": 0.35714285714285715
+      },
+      {
+        "bin": "[90,135)",
+        "n": 19,
+        "success_rate": 0.3684210526315789
+      },
+      {
+        "bin": "[135,180)",
+        "n": 14,
+        "success_rate": 0.42857142857142855
+      }
+    ],
+    "success_margin_mm_mean": 6.646857142857144,
+    "success_margin_mm_min": 2.27,
+    "success_time_s_mean": 10.422857142857142
+  },
+  "all": {
+    "episodes": 110,
+    "successes": 38,
+    "success_rate": 0.34545454545454546,
+    "oneshot_successes": 36,
+    "oneshot_success_rate": 0.32727272727272727,
+    "end_reasons": {
+      "timeout_not_released": 13,
+      "outside_goal": 15,
+      "success": 38,
+      "dropped": 19,
+      "out_of_area": 15,
+      "grasp_fail": 1,
+      "timeout_carrying": 7,
+      "lift_fail": 2
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 4,
+        "success_rate": 0.5
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 12,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 16,
+        "success_rate": 0.3125
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 14,
+        "success_rate": 0.2857142857142857
+      },
+      {
+        "bin": "[0,45)",
+        "n": 13,
+        "success_rate": 0.38461538461538464
+      },
+      {
+        "bin": "[45,90)",
+        "n": 15,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[90,135)",
+        "n": 21,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[135,180)",
+        "n": 15,
+        "success_rate": 0.4
+      }
+    ],
+    "success_margin_mm_mean": 6.599473684210525,
+    "success_margin_mm_min": 2.27,
+    "success_time_s_mean": 10.33157894736842
+  }
+}
