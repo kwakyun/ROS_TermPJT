@@ -54,6 +54,18 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
                            else 0.0)
     terms["push"] = -cfg["push_penalty_per_m"] * s["push_displacement"]
     terms["drop"] = -float(cfg.get("drop_penalty", 0.0)) if s.get("dropped_now", False) else 0.0
+    opening_now = (s["ever_lifted"] and s["on_floor"] and s["inside_goal"]
+                   and not s.get("grip_closed_cmd", True) and not s["released"])
+    terms["opening_drift"] = (
+        -float(cfg.get("opening_drift_penalty", 0.0))
+        * (float(np.linalg.norm(s["action"][:2])) + 0.5 * abs(float(s["action"][3])))
+        if opening_now else 0.0
+    )
+    in_goal_placed = s["ever_lifted"] and s["on_floor"] and s["inside_goal"]
+    terms["margin_bonus"] = (
+        float(cfg.get("margin_bonus_weight", 0.0)) * float(np.clip(s.get("goal_margin_m", 0.0) / 0.010, 0.0, 1.0))
+        if in_goal_placed else 0.0
+    )
     terms["action"] = -cfg["action_cost"] * float(np.sum(np.square(s["action"][:4])))
     terms["success"] = cfg["success_bonus"] if s["success"] else 0.0
     terms["failure"] = -cfg["failure_penalty"] if s["failure"] else 0.0

@@ -1,0 +1,182 @@
+{
+  "policy": "/home/rhkrdbswlr/termproject/runs/A_sym_v6_final/policy_best.zip",
+  "tag": "noise",
+  "official": {
+    "episodes": 10,
+    "successes": 3,
+    "success_rate": 0.3,
+    "oneshot_successes": 3,
+    "oneshot_success_rate": 0.3,
+    "end_reasons": {
+      "dropped": 2,
+      "success": 3,
+      "outside_goal": 3,
+      "out_of_area": 2
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 1,
+        "success_rate": 1.0
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 2,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[0,45)",
+        "n": 1,
+        "success_rate": 1.0
+      },
+      {
+        "bin": "[45,90)",
+        "n": 1,
+        "success_rate": 0.0
+      },
+      {
+        "bin": "[90,135)",
+        "n": 2,
+        "success_rate": 0.5
+      },
+      {
+        "bin": "[135,180)",
+        "n": 1,
+        "success_rate": 0.0
+      }
+    ],
+    "success_margin_mm_mean": 4.736666666666666,
+    "success_margin_mm_min": 0.33,
+    "success_time_s_mean": 9.133333333333335
+  },
+  "extra": {
+    "episodes": 100,
+    "successes": 37,
+    "success_rate": 0.37,
+    "oneshot_successes": 37,
+    "oneshot_success_rate": 0.37,
+    "end_reasons": {
+      "success": 37,
+      "dropped": 20,
+      "outside_goal": 27,
+      "timeout_not_released": 12,
+      "out_of_area": 3,
+      "grasp_fail": 1
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 3,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 11,
+        "success_rate": 0.2727272727272727
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 15,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 12,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[0,45)",
+        "n": 12,
+        "success_rate": 0.25
+      },
+      {
+        "bin": "[45,90)",
+        "n": 14,
+        "success_rate": 0.42857142857142855
+      },
+      {
+        "bin": "[90,135)",
+        "n": 19,
+        "success_rate": 0.5263157894736842
+      },
+      {
+        "bin": "[135,180)",
+        "n": 14,
+        "success_rate": 0.35714285714285715
+      }
+    ],
+    "success_margin_mm_mean": 6.957567567567568,
+    "success_margin_mm_min": 1.53,
+    "success_time_s_mean": 9.398648648648647
+  },
+  "all": {
+    "episodes": 110,
+    "successes": 40,
+    "success_rate": 0.36363636363636365,
+    "oneshot_successes": 40,
+    "oneshot_success_rate": 0.36363636363636365,
+    "end_reasons": {
+      "dropped": 22,
+      "success": 40,
+      "outside_goal": 30,
+      "out_of_area": 5,
+      "timeout_not_released": 12,
+      "grasp_fail": 1
+    },
+    "yaw_bins": [
+      {
+        "bin": "[-180,-135)",
+        "n": 4,
+        "success_rate": 0.25
+      },
+      {
+        "bin": "[-135,-90)",
+        "n": 12,
+        "success_rate": 0.3333333333333333
+      },
+      {
+        "bin": "[-90,-45)",
+        "n": 16,
+        "success_rate": 0.3125
+      },
+      {
+        "bin": "[-45,0)",
+        "n": 14,
+        "success_rate": 0.2857142857142857
+      },
+      {
+        "bin": "[0,45)",
+        "n": 13,
+        "success_rate": 0.3076923076923077
+      },
+      {
+        "bin": "[45,90)",
+        "n": 15,
+        "success_rate": 0.4
+      },
+      {
+        "bin": "[90,135)",
+        "n": 21,
+        "success_rate": 0.5238095238095238
+      },
+      {
+        "bin": "[135,180)",
+        "n": 15,
+        "success_rate": 0.3333333333333333
+      }
+    ],
+    "success_margin_mm_mean": 6.7909999999999995,
+    "success_margin_mm_min": 0.33,
+    "success_time_s_mean": 9.37875
+  }
+}

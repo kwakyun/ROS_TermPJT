@@ -280,9 +280,12 @@ class PickPlaceEnv(gym.Env):
         gp = f["grasp_point"]
         meas_xy, meas_yaw = self._camera_measurement(gp)
         grasped = self._grasp_flag_from_joint()
-        cube_xyz, cube_yaw = self.estimator.update(meas_xy, meas_yaw, grasped, gp, f["gripper_yaw"])
+        cube_xyz, cube_yaw = self.estimator.update(
+            meas_xy, meas_yaw, grasped, gp, f["gripper_yaw"], float(q[GRIPPER_INDEX])
+        )
         self._obs_cache = {"grasp_point": gp, "gripper_yaw": f["gripper_yaw"],
-                           "cube_est": cube_xyz, "cube_yaw_est": cube_yaw, "grasped_est": grasped}
+                           "cube_est": cube_xyz, "cube_yaw_est": cube_yaw, "grasped_est": grasped,
+                           "meas_xy": meas_xy, "meas_yaw": meas_yaw}
         return build_observation(
             variant=self.obs_variant, joint_q=q, grasp_point=gp, gripper_yaw=f["gripper_yaw"],
             cube_xyz=cube_xyz, cube_yaw=cube_yaw, goal_xyz=self.goal_xyz, grasped=grasped,
@@ -341,7 +344,7 @@ class PickPlaceEnv(gym.Env):
             "gripper_open_frac": float(np.clip(q[GRIPPER_INDEX] / (0.6 * self.cfg["robot"]["gripper_open_rad"]), 0.0, 1.0)),
             "cube_yaw": self.cube_yaw(), "gripper_yaw": self.kin.fk(q)["gripper_yaw"],
             "push_displacement": push, "action": action, "success": success, "failure": out,
-            "dropped_now": dropped_now,
+            "dropped_now": dropped_now, "goal_margin_m": margin,
         }, self.cfg["reward"], self.rew_variant)
 
         terminated = bool(success or out)

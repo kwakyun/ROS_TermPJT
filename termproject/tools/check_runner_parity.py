@@ -55,8 +55,7 @@ def main() -> None:
         core.grip_closed_cmd = bool(act[4] > 0)
         core.steps = env.steps
         c = env._obs_cache
-        meas_xy = None if c["grasped_est"] else c["cube_est"][:2]
-        core_obs = core.observe(env.joint_q(), meas_xy, c["cube_yaw_est"])
+        core_obs = core.observe(env.joint_q(), c["meas_xy"], c["meas_yaw"])
         max_obs = max(max_obs, float(np.max(np.abs(core_obs - obs))))
         if term or trunc:
             break

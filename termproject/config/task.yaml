@@ -65,6 +65,8 @@ reward:
   success_bonus: 100.0
   failure_penalty: 10.0
   drop_penalty: 5.0                 # 운반 중 낙하 1회당 감점 (Phase 2 Ablation 결과 81.8% vs 74.5%로 채택)
+  opening_drift_penalty: 0.06       # 놓는 중(opening) XY/회전 드리프트 억제
+  margin_bonus_weight: 0.03         # 4코너 goal margin 밀착 보너스 (max +0.015/step)
 
 randomization:                      # 비교 B (Domain Randomization). enabled=false 면 공칭 환경
   enabled: false

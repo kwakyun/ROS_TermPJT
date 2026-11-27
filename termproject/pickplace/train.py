@@ -21,7 +21,7 @@ import numpy as np
 import yaml
 
 from .env import ROOT, PickPlaceEnv, load_config
-from .geometry import align_error, fold_quarter
+from .geometry import align_error, bottom_corners, fold_quarter, region_margin
 from .kinematics import GRIPPER_INDEX
 
 
@@ -53,68 +53,86 @@ def quick_eval(model, cfg: dict, episodes: int, seed: int, vec_norm=None) -> dic
     return {"success_rate": succ / episodes, "mean_max_stage": float(np.mean(stages))}
 
 
-CARRY_Z = 0.035
+CARRY_Z = 0.036
 
 
 def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarray:
-    """그리퍼 각도 기준 수정·낮은 운반 높이(0.035 m)·히스테리시스 적용 시연 전문가."""
+    """오프셋 보상·선행 Yaw 정렬·바닥 3스텝 안착 후 무드리프트 해제·목표 밖 복구 적용 시연 전문가."""
     if state is None:
-        state = {"carry": False}
+        state = {"carry": False, "releasing": False, "settled": 0}
     q = env.joint_q()
     f = env.kin.fk(q)
     gp, gyaw = f["grasp_point"], f["gripper_yaw"]
     cube = env.cube_pos()
-    goal = env.goal_xyz
+    crot = env.cube_rot()
+    corners = bottom_corners(cube, crot, env.half)
+    margin = region_margin(corners, env.goal_xy, env.goal_half)
     a = np.zeros(5, dtype=np.float32)
 
     def move_to(target: np.ndarray, gain: float = 1.0) -> np.ndarray:
         return np.clip(gain * (target - gp) / env.act_scale[:3], -1.0, 1.0)
 
     e = align_error(env.cube_yaw(), gyaw)
-    d_cube_goal_xy = float(np.linalg.norm(cube[:2] - goal[:2]))
-    d_gp_cube_xy = float(np.linalg.norm(gp[:2] - cube[:2]))
-    d_gp_cube = float(np.linalg.norm(gp - cube))
-    d_gp_goal_xy = float(np.linalg.norm(gp[:2] - goal[:2]))
+    yaw45 = fold_quarter(env.cube_yaw())
+    grasp_pt = cube + np.array([0.0, 0.0, 0.001])
+    d_gp_cube_xy = float(np.linalg.norm(gp[:2] - grasp_pt[:2]))
+    d_gp_cube = float(np.linalg.norm(gp - grasp_pt))
     gq = float(q[GRIPPER_INDEX])
 
-    if d_cube_goal_xy < 0.012 and cube[2] < env.rest_z + 0.004:
-        state["carry"] = False
-        if gq < 0.48:
-            a[4] = -1.0
-        else:
-            a[:3] = move_to(np.array([goal[0] - 0.01, goal[1], 0.08]))
-            a[4] = -1.0
-        return a
+    if env.tracker.stage == 3 and margin >= 0.004:
+        state["settled"] = state.get("settled", 0) + 1
+    else:
+        state["settled"] = 0
 
-    gripped = env.grip_closed_cmd and (-0.06 < gq < 0.20)
+    if state.get("releasing", False) or state["settled"] >= 3:
+        if gq >= 0.50 and margin < 0.0:
+            state["releasing"] = False
+            state["carry"] = False
+            state["settled"] = 0
+        else:
+            state["carry"] = False
+            state["releasing"] = True
+            if gq < 0.50:
+                a[:4] = 0.0
+                a[4] = -1.0
+            else:
+                a[:3] = move_to(np.array([gp[0], gp[1], 0.08]))
+                a[4] = -1.0
+            return a
+
+    gripped = env.grip_closed_cmd and (-0.06 < gq < 0.10)
     if not gripped:
         state["carry"] = False
     if gripped:
         a[4] = 1.0
-        if d_gp_goal_xy > 0.010:
-            if gp[2] > CARRY_Z - 0.006:
+        grasp_off = np.clip(cube[:2] - gp[:2], -0.015, 0.015)
+        place_xy = env.goal_xy - grasp_off
+        place_xy[0] = min(place_xy[0], 0.393)
+        d_target_xy = float(np.linalg.norm(gp[:2] - place_xy))
+        if d_target_xy > 0.010 or abs(yaw45) > 0.14:
+            if gp[2] > CARRY_Z - 0.005:
                 state["carry"] = True
             if not state["carry"]:
                 a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]))
             else:
-                a[:3] = move_to(np.array([goal[0], goal[1], CARRY_Z]))
-                a[3] = float(np.clip(-fold_quarter(env.cube_yaw()) / env.act_scale[3], -1.0, 1.0))
+                a[:3] = move_to(np.array([place_xy[0], place_xy[1], CARRY_Z]))
+                a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
         else:
-            a[:3] = move_to(np.array([goal[0], goal[1], env.rest_z + 0.001]))
-            a[3] = float(np.clip(-fold_quarter(env.cube_yaw()) / env.act_scale[3], -1.0, 1.0))
+            a[:3] = move_to(np.array([place_xy[0], place_xy[1], env.rest_z - 0.003]))
+            a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
         return a
 
-    if d_gp_cube < 0.006 and abs(e) < 0.06:
-        a[:3] = move_to(cube, gain=0.5)
-        a[3] = float(np.clip(e / env.act_scale[3], -1.0, 1.0))
+    if d_gp_cube < 0.007 and abs(e) < 0.08:
+        a[:3] = move_to(grasp_pt, gain=0.5)
+        a[3] = float(np.clip(0.5 * e / env.act_scale[3], -1.0, 1.0))
         a[4] = 1.0
-    elif d_gp_cube_xy < 0.010 and abs(e) < 0.06:
-        a[:3] = move_to(cube)
-        a[3] = float(np.clip(e / env.act_scale[3], -1.0, 1.0))
+    elif d_gp_cube_xy < 0.010 and abs(e) < 0.08:
+        a[:3] = move_to(grasp_pt)
+        a[3] = float(np.clip(0.5 * e / env.act_scale[3], -1.0, 1.0))
         a[4] = -1.0
     else:
         a[:3] = move_to(cube + np.array([0.0, 0.0, 0.05]))
-        a[3] = float(np.clip(e / env.act_scale[3], -1.0, 1.0))
+        a[3] = float(np.clip(0.5 * e / env.act_scale[3], -1.0, 1.0))
         a[4] = -1.0
     return a
 
@@ -146,7 +164,7 @@ def collect_demo_transitions(
         last_s = s
         obs, _ = env.reset(seed=s)
         phase = {"name": "above", "t": 0}
-        expert_state = {"carry": False}
+        expert_state = {"carry": False, "releasing": False, "settled": 0}
         ep: list[tuple[np.ndarray, np.ndarray, np.ndarray, float, float]] = []
         done = False
         info: dict = {}
@@ -372,7 +390,7 @@ def main() -> None:
                         n_ok = 0
                         for ep_i in range(dagger_episodes):
                             o, _ = d_env.reset(seed=21000 + r_idx * 1000 + ep_i)
-                            expert_state = {"carry": False}
+                            expert_state = {"carry": False, "releasing": False, "settled": 0}
                             done = False
                             ep_st = 0
                             info_d: dict = {}

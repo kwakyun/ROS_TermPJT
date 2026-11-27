@@ -31,7 +31,7 @@ def make_space(variant: str) -> spaces.Box:
 @dataclass
 class CubeEstimator:
     rest_z: float
-    max_grasp_offset: float = 0.012
+    max_grasp_offset: float = 0.020
     xy: Optional[np.ndarray] = None
     yaw: float = 0.0
     _grasp_offset: Optional[np.ndarray] = None
@@ -45,18 +45,32 @@ class CubeEstimator:
         self.visible = False
 
     def update(self, meas_xy, meas_yaw, grasped: bool, grasp_point: np.ndarray,
-               gripper_yaw: float) -> tuple[np.ndarray, float]:
+               gripper_yaw: float, gripper_q: float = 0.0) -> tuple[np.ndarray, float]:
         have = meas_xy is not None
         self.visible = have
         if grasped:
-            if self._grasp_offset is None:             # 잡는 순간 오프셋 고정
-                ref = np.asarray(meas_xy) if have else (self.xy if self.xy is not None else grasp_point[:2])
+            if have:
+                off = np.asarray(meas_xy, dtype=float) - grasp_point[:2]
+                n = np.linalg.norm(off)
+                if n > self.max_grasp_offset:
+                    off = off / n * self.max_grasp_offset
+                yaw_off = wrap_pi(meas_yaw - gripper_yaw)
+                if self._grasp_offset is None or gripper_q > 0.22:
+                    self._grasp_offset = off
+                    self._grasp_yaw_offset = yaw_off
+                else:
+                    self._grasp_offset = 0.5 * self._grasp_offset + 0.5 * off
+                    self._grasp_yaw_offset = wrap_pi(
+                        self._grasp_yaw_offset + 0.5 * wrap_pi(yaw_off - self._grasp_yaw_offset)
+                    )
+            elif self._grasp_offset is None:
+                ref = self.xy if self.xy is not None else grasp_point[:2]
                 off = ref - grasp_point[:2]
                 n = np.linalg.norm(off)
                 if n > self.max_grasp_offset:
                     off = off / n * self.max_grasp_offset
                 self._grasp_offset = off
-                self._grasp_yaw_offset = wrap_pi((meas_yaw if have else self.yaw) - gripper_yaw)
+                self._grasp_yaw_offset = wrap_pi(self.yaw - gripper_yaw)
             self.xy = grasp_point[:2] + self._grasp_offset
             self.yaw = wrap_pi(gripper_yaw + self._grasp_yaw_offset)
             z = float(grasp_point[2])

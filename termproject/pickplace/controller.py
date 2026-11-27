@@ -77,7 +77,7 @@ class PolicyCore:
         q = np.asarray(q_meas, dtype=float)
         f = self.kin.fk(q)
         grasped = self.grip_closed_cmd and q[GRIPPER_INDEX] > self.grasp_detect
-        cube_xyz, yaw = self.estimator.update(cube_xy, cube_yaw, grasped, f["grasp_point"], f["gripper_yaw"])
+        cube_xyz, yaw = self.estimator.update(cube_xy, cube_yaw, grasped, f["grasp_point"], f["gripper_yaw"], float(q[GRIPPER_INDEX]))
         self.last = {"grasp_point": f["grasp_point"], "gripper_yaw": f["gripper_yaw"],
                      "cube_est": cube_xyz, "cube_yaw_est": yaw, "grasped_est": grasped}
         return build_observation(
