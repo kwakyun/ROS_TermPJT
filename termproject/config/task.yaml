@@ -69,6 +69,7 @@ reward:
   opening_drift_penalty: 0.06       # 놓는 중(opening) XY/회전 드리프트 억제
   margin_bonus_weight: 0.03         # 4코너 goal margin 밀착 보너스 (max +0.015/step)
   outside_idle_penalty: 0.015       # 목표 밖 해제 후 대기 감점 (재파지 복구 유도)
+  carry_scrape_penalty: 0.04        # 원거리 운반 중 바닥 스침·저고도 처짐 감점
 
 randomization:                      # 비교 B (Domain Randomization). enabled=false 면 공칭 환경
   enabled: false

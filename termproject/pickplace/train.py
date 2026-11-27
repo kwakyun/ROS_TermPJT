@@ -54,11 +54,11 @@ def quick_eval(model, cfg: dict, episodes: int, seed: int, vec_norm=None) -> dic
     return {"success_rate": succ / episodes, "mean_max_stage": float(np.mean(stages))}
 
 
-CARRY_Z = 0.036
+CARRY_Z = 0.040
 
 
 def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarray:
-    """오프셋 보상·선행 Yaw 정렬·바닥 3스텝 안착 후 무드리프트 해제·목표 밖 복구 적용 시연 전문가."""
+    """관절 속도비 보존(XY cap 0.35)·중앙 파지·무드리프트 해제·경계 복구 적용 시연 전문가."""
     if state is None:
         state = {"carry": False, "releasing": False, "settled": 0}
     q = env.joint_q()
@@ -75,7 +75,7 @@ def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarr
 
     e = align_error(env.cube_yaw(), gyaw)
     yaw45 = fold_quarter(env.cube_yaw())
-    grasp_pt = cube + np.array([0.0, 0.0, 0.001])
+    grasp_pt = cube
     d_gp_cube_xy = float(np.linalg.norm(gp[:2] - grasp_pt[:2]))
     d_gp_cube = float(np.linalg.norm(gp - grasp_pt))
     gq = float(q[GRIPPER_INDEX])
@@ -108,14 +108,21 @@ def markov_demo_action(env: PickPlaceEnv, state: dict | None = None) -> np.ndarr
         a[4] = 1.0
         grasp_off = np.clip(cube[:2] - gp[:2], -0.015, 0.015)
         place_xy = env.goal_xy - grasp_off
-        place_xy[0] = min(place_xy[0], 0.393)
+        place_xy[0] = min(place_xy[0], 0.391)
         d_target_xy = float(np.linalg.norm(gp[:2] - place_xy))
-        if gp[2] > CARRY_Z - 0.005:
+        if gp[2] >= CARRY_Z - 0.004:
             state["carry"] = True
         if not state["carry"]:
-            a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]))
+            a[:3] = move_to(np.array([gp[0], gp[1], CARRY_Z]), gain=0.8)
         elif d_target_xy > 0.010 or abs(yaw45) > 0.14:
-            a[:3] = move_to(np.array([place_xy[0], place_xy[1], CARRY_Z]))
+            tgt = np.array([place_xy[0], place_xy[1], CARRY_Z])
+            cap = 0.12 if gp[2] < CARRY_Z - 0.006 else 0.35
+            dxy = tgt[:2] - gp[:2]
+            nxy = float(np.linalg.norm(dxy))
+            if nxy > 1e-6:
+                step_xy = dxy / nxy * min(nxy, cap * env.act_scale[0])
+                a[:2] = np.clip(step_xy / env.act_scale[:2], -cap, cap)
+            a[2] = float(np.clip((tgt[2] - gp[2]) / env.act_scale[2], -1.0, 1.0))
             a[3] = float(np.clip(-0.7 * yaw45 / env.act_scale[3], -1.0, 1.0))
         else:
             a[:3] = move_to(np.array([place_xy[0], place_xy[1], env.rest_z - 0.003]))
@@ -173,7 +180,7 @@ def collect_demo_transitions(
         done = False
         info: dict = {}
         ep_steps = 0
-        while not done and (not markov or ep_steps < 280):
+        while not done and (not markov or ep_steps < 340):
             raw_act = (markov_demo_action(env, expert_state) if markov else scripted_action(env, phase)).astype(np.float32)
             act = np.clip(raw_act, -1.0 if markov else -0.85, 1.0 if markov else 0.85).astype(np.float32)
             next_obs, rew, term, trunc, info = env.step(act)
@@ -181,7 +188,7 @@ def collect_demo_transitions(
             ep.append((obs.astype(np.float32), next_obs.astype(np.float32), act, float(rew), float(done)))
             obs = next_obs
             ep_steps += 1
-        if info.get("is_success"):
+        if info.get("is_success") and (not markov or int(info.get("drops", 0)) == 0):
             rets = np.zeros(len(ep), dtype=np.float32)
             g = 0.0
             for idx in range(len(ep) - 1, -1, -1):
@@ -237,7 +244,7 @@ def collect_demo_transitions(
                 ep.append((obs.astype(np.float32), next_obs.astype(np.float32), act, float(rew), float(done)))
                 obs = next_obs
                 ep_steps += 1
-            if info.get("is_success"):
+            if info.get("is_success") and int(info.get("drops", 0)) == 0:
                 rets = np.zeros(len(ep), dtype=np.float32)
                 g = 0.0
                 for idx in range(len(ep) - 1, -1, -1):

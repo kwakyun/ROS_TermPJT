@@ -1,0 +1,8 @@
+{
+  "run": "A_sym_v8",
+  "algorithm": "ppo",
+  "steps": 204800,
+  "train_seconds": 636.0,
+  "n_envs": 8,
+  "seed": 7
+}

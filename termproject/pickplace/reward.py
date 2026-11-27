@@ -30,7 +30,8 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
                   if s["lifted"] else 0.0),
         "place": cfg["place"] if (s["grasped"] and s["on_floor"] and s["inside_goal"]) else 0.0,
         "place_near": (cfg["carry"] * (0.6 + 0.4 * (1.0 - np.tanh(10.0 * d_goal_xy)))
-                       if (s["grasped"] and s["on_floor"] and s["ever_lifted"] and not s["inside_goal"])
+                       if (s["grasped"] and s["on_floor"] and s["ever_lifted"]
+                           and not s["inside_goal"] and d_goal_xy < 0.020)
                        else 0.0),
         "opening": (cfg["place"] + (cfg["release"] - cfg["place"]) * s.get("gripper_open_frac", 0.0)
                     if (s["ever_lifted"] and s["on_floor"] and s["inside_goal"]
@@ -68,6 +69,9 @@ def staged_reward(s: dict, cfg: dict, variant: str) -> tuple[float, dict]:
     )
     outside_idle = s["ever_lifted"] and s["on_floor"] and s["released"] and not s["inside_goal"]
     terms["outside_idle"] = -float(cfg.get("outside_idle_penalty", 0.0)) if outside_idle else 0.0
+    carry_scrape = (s["grasped"] and s["ever_lifted"] and d_goal_xy > 0.025
+                    and (s["on_floor"] or s["clearance"] < 0.008))
+    terms["carry_scrape"] = -float(cfg.get("carry_scrape_penalty", 0.0)) if carry_scrape else 0.0
     terms["action"] = -cfg["action_cost"] * float(np.sum(np.square(s["action"][:4])))
     terms["success"] = cfg["success_bonus"] if s["success"] else 0.0
     terms["failure"] = -cfg["failure_penalty"] if s["failure"] else 0.0
