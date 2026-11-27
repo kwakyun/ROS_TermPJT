@@ -1,6 +1,6 @@
 # 7조 임베디드 시스템 텀프로젝트 — Advanced 단일 큐브 Pick-and-place
 
-RL(SAC)로 무작위 시작 배치(X 0.270~0.330, Y ±0.060, yaw ±π)의 25 mm 큐브를
+RL(PPO)로 무작위 시작 배치(X 0.270~0.330, Y ±0.060, yaw ±π)의 25 mm 큐브를
 집기 → 들어 올리기 → 운반 → 내려놓기 → 완전 해제 → (0.390, 0.000) 50×50 mm 영역 안 2초 유지까지 수행한다.
 
 자세한 계획·개념·실행 방법은 `../docs/` 의 세 문서를 본다.
@@ -47,9 +47,9 @@ termproject/
 cd ~/termproject && source .venv/bin/activate && export PYTHONPATH=$PWD
 python -m tests.test_success_rules                 # 판정 규칙
 python -m tools.scripted_check                     # 환경이 과제를 수행 가능한지 (10/10 기대)
-python -m pickplace.train --exp config/exp_A_sym.yaml --run A_sym_s7
-python -m pickplace.evaluate --run A_sym_s7
-MUJOCO_GL=egl python -m pickplace.record_video --run A_sym_s7
+python -m pickplace.train --exp config/exp_A_sym.yaml --run A_sym_v8
+python -m pickplace.evaluate --run A_sym_v8
+MUJOCO_GL=egl python -m pickplace.record_video --run A_sym_v8
 ```
 
 ## AI 활용 표기

@@ -23,7 +23,7 @@ detector:
   max_jump_m: 0.03                   # 한 프레임에 이보다 크게 튀면 무시(오검출)
 
 runner:
-  run: A_sym_s7                      # runs/<run>/policy_best.zip 과 run_config.yaml 사용
+  run: A_sym_v8                      # runs/<run>/policy_best.zip 과 run_config.yaml 사용
   which: best
   rate_hz: 20.0                      # 시뮬레이션 제어 주기와 반드시 같게
   cube_timeout_s: 0.25               # 이보다 오래된 검출은 '검출 실패'로 처리
